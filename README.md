@@ -2,7 +2,7 @@
 
 FlagGuard switches off a failing experiment in self-hosted Flagsmith. It watches error rate and latency in Prometheus, checks that the problem lasts, and keeps a record of what it changed.
 
-[Watch the 2:36 walkthrough](docs/flagguard-demo-silent.mp4) · [Follow the demo](docs/JUDGE_GUIDE.md) · [Connect your own service](docs/OPERATIONS.md#configure-an-existing-stack)
+[Follow the demo](docs/JUDGE_GUIDE.md) | [Connect your own service](docs/OPERATIONS.md#configure-an-existing-stack)
 
 ![The FlagGuard landing page, with a track switch representing the two checkout routes](docs/images/landing.jpg)
 
