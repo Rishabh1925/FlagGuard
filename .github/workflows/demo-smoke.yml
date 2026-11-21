@@ -1,0 +1,34 @@
+name: Full demo smoke
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and provision from source
+        run: make demo
+      - name: Scan runtime images
+        run: python3 scripts/scan-images.py
+      - name: Exercise rollback and recovery
+        run: python3 scripts/smoke.py
+      - name: Verify ready state
+        run: docker compose exec -T flagguard /app/service -check
+      - name: Verify shadow mode without flag writes
+        run: python3 scripts/shadow-smoke.py
+      - name: Verify authenticated production container
+        run: python3 scripts/production-smoke.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-result
+          path: |
+            tmp/smoke-result.json
+            tmp/shadow-smoke-result.json
+            tmp/production-smoke-result.json
+            tmp/image-scans/*.json
+      - name: Stop services
+        if: always()
+        run: docker compose down

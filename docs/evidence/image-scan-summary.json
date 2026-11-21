@@ -1,0 +1,25 @@
+{
+  "scanner": "Trivy 0.76.2",
+  "images": [
+    {
+      "local_image": "flagguard-flagguard",
+      "scanned_at": "2026-11-21T16:35:55.77830263Z",
+      "scanned_image_config": "sha256:f987f767068456dc6b3e8ef4fe422a217470ef7de3b4e676f84b3ba5a0fe03eb",
+      "known_findings": 0,
+      "targets": [
+        "alpine",
+        "gobinary"
+      ]
+    },
+    {
+      "local_image": "flagguard-demo-app",
+      "scanned_at": "2026-11-21T16:36:10.51617381Z",
+      "scanned_image_config": "sha256:837e228e86f3f6492d7a5a4f1e578dbd3e09d8e9e2458bd6627f5488121ecfe8",
+      "known_findings": 0,
+      "targets": [
+        "alpine",
+        "gobinary"
+      ]
+    }
+  ]
+}

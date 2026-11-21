@@ -1,0 +1,31 @@
+# Run from this repository; connects to existing services without provisioning them.
+name: flagguard-standalone
+services:
+  flagguard:
+    image: flagguard-flagguard
+    build:
+      context: .
+      args: {TARGET: flagguard}
+    environment:
+      FLAGSMITH_API_URL: ${FLAGSMITH_API_URL:?Set your container-reachable Flagsmith API URL}
+      FLAGSMITH_ADMIN_TOKEN: ${FLAGSMITH_ADMIN_TOKEN:?Set your management token}
+      FLAGSMITH_ENV_KEY: ${FLAGSMITH_ENV_KEY:?Set your environment key}
+      FLAGSMITH_EXPERIMENT_ID: ${FLAGSMITH_EXPERIMENT_ID:-0}
+      PROMETHEUS_URL: ${PROMETHEUS_URL:?Set your container-reachable Prometheus URL}
+      FLAGGUARD_STATE_FILE: /data/state.json
+      FLAGGUARD_LISTEN: 0.0.0.0:8085
+      FLAGGUARD_AUTH_TOKEN: ${FLAGGUARD_AUTH_TOKEN:?Set a random operator password of at least 32 characters}
+      FLAGGUARD_ALLOWED_HOSTS: ${FLAGGUARD_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      WEBHOOK_URL: ${WEBHOOK_URL:-}
+    restart: unless-stopped
+    read_only: true
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+    tmpfs: ['/tmp:size=16m,mode=1777']
+    stop_grace_period: 30s
+    volumes:
+      - ${GUARDRAILS_FILE:-./guardrails.yaml}:/app/guardrails.yaml:ro
+      - guarddata:/data
+    ports: ['127.0.0.1:8085:8085']
+volumes:
+  guarddata:

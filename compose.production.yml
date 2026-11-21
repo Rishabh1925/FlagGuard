@@ -1,0 +1,44 @@
+# Single controller; existing Flagsmith and Prometheus; TLS terminates on the host.
+name: flagguard-production
+services:
+  flagguard:
+    image: ${FLAGGUARD_IMAGE:-flagguard-flagguard}
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    tmpfs: ['/tmp:size=16m,mode=1777']
+    mem_limit: 256m
+    cpus: 1
+    pids_limit: 64
+    stop_grace_period: 30s
+    environment:
+      FLAGGUARD_LISTEN: 0.0.0.0:8085
+      FLAGGUARD_ALLOWED_HOSTS: localhost,127.0.0.1,${FLAGGUARD_DOMAIN:?Set the HTTPS hostname}
+      FLAGGUARD_AUTH_TOKEN_FILE: /run/secrets/operator_token
+      FLAGSMITH_ADMIN_TOKEN_FILE: /run/secrets/flagsmith_token
+      FLAGSMITH_ENV_KEY_FILE: /run/secrets/environment_key
+      FLAGSMITH_API_URL: ${FLAGSMITH_API_URL:?Set the existing Flagsmith API URL}
+      PROMETHEUS_URL: ${PROMETHEUS_URL:?Set the existing Prometheus URL}
+      FLAGSMITH_EXPERIMENT_ID: ${FLAGSMITH_EXPERIMENT_ID:-0}
+      FLAGGUARD_STATE_FILE: /data/state.json
+      WEBHOOK_URL: ${WEBHOOK_URL:-}
+    secrets: [operator_token, flagsmith_token, environment_key]
+    volumes:
+      - ${GUARDRAILS_FILE:?Set the reviewed policy file}:/app/guardrails.yaml:ro
+      - guarddata:/data
+    ports: ['127.0.0.1:8085:8085']
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://localhost:8085/healthz']
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    logging:
+      driver: json-file
+      options: {max-size: '10m', max-file: '3'}
+secrets:
+  operator_token: {file: '${OPERATOR_TOKEN_FILE:?Set the operator secret file}'}
+  flagsmith_token: {file: '${FLAGSMITH_TOKEN_FILE:?Set the Flagsmith secret file}'}
+  environment_key: {file: '${ENVIRONMENT_KEY_FILE:?Set the environment key file}'}
+volumes:
+  guarddata:

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Rehearse and verify experiment rollbacks with self-hosted Flagsmith and Prometheus.">
+  <title>FlagGuard · Experiment reliability</title>
+  <link rel="stylesheet" href="/landing.css"><script src="/landing.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="mast wrap">
+  <a class="brand" href="/" aria-label="FlagGuard home"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>FlagGuard</a>
+  <nav aria-label="Site navigation"><a href="#proof">Incident replay</a><a href="#policy">Policy bench</a><a class="nav-action" href="/workspace#overview">Open workspace <span aria-hidden="true">↗</span></a></nav>
+</header>
+<main id="main">
+  <section class="hero wrap">
+    <div class="hero-copy">
+      <p class="kicker"><span class="pip"></span>Experiment reliability</p>
+      <h1>When checkout breaks,<br><em>switch back.</em></h1>
+      <p class="lead">Give your Flagsmith rollout an automatic return to safety. Catch a failing variant, switch it off, and keep the readings that explain why.</p>
+      <div class="actions"><a class="button" href="/workspace#overview">Open workspace <span aria-hidden="true">↗</span></a><a class="plain" href="#proof">Explore a rollback <span aria-hidden="true">↓</span></a></div>
+    </div>
+    <figure class="hero-figure">
+      <img src="/exhibit/switch.webp" alt="A tabletop track switch with an orange lever and two diverging steel rails." width="1344" height="896" fetchpriority="high">
+      <figcaption><span>Two routes. One release flag.</span><code>checkout_flow</code></figcaption>
+    </figure>
+  </section>
+  <section class="replay" id="proof" aria-labelledby="proof-title">
+    <div class="wrap">
+      <div class="section-head"><div><p class="kicker"><span class="pip"></span>Recorded incident · synthetic checkout</p><h2 id="proof-title">Inside a rollback.</h2></div><a class="receipt-link" href="/exhibit/checkout.json" download="checkout-rollback.json">Download incident JSON <span aria-hidden="true">↓</span></a></div>
+      <div class="replay-layout">
+        <div class="replay-intro"><p>One checkout started failing. Follow the readings from the original incident through to the first 20 requests after the switch.</p>
+          <div class="steps" aria-label="Replay stages" hidden>
+            <button type="button" data-step="0" aria-pressed="true">Compare readings</button>
+            <button type="button" data-step="1" aria-pressed="false">Inspect the switch</button>
+            <button type="button" data-step="2" aria-pressed="false">Verify checkout</button>
+          </div>
+        </div>
+        <article class="instrument" aria-live="polite" aria-atomic="true">
+          <div class="instrument-head"><span class="instrument-lamp"></span> Incident receipt <code>checkout_flow</code></div>
+          <div class="readout"><h3 id="reading-title">Checkout incident</h3><dl id="reading-values"><div><dt>Source</dt><dd>Local smoke test</dd></div></dl><p id="reading-note">Open the incident JSON for the original measurements and verified settings.</p></div>
+        </article>
+      </div>
+    </div>
+  </section>
+  <section id="policy" class="bench wrap" aria-labelledby="bench-title">
+    <div class="bench-intro"><p class="kicker"><span class="pip"></span>Policy bench</p><h2 id="bench-title">Where would you<br>draw the line?</h2><p>Move the limits against the recorded Variant B readings. This exercise compares one sample window. Live protection also checks traffic volume and how long a breach lasts.</p></div>
+    <div class="bench-controls" id="bench-controls" hidden>
+      <div class="bench-head"><span>Variant B limits</span><button id="restore" type="button">Restore recorded limits</button></div>
+      <label for="error-limit">Error rate <output id="error-output" for="error-limit"></output></label>
+      <input id="error-limit" type="range" min="0" max="50" step="1"><div class="scale"><span>0%</span><strong id="recorded-error"></strong><span>50%</span></div>
+      <label for="latency-limit">P99 latency <output id="latency-output" for="latency-limit"></output></label>
+      <input id="latency-limit" type="range" min="0" max="1200" step="25"><div class="scale"><span>0 ms</span><strong id="recorded-latency"></strong><span>1,200 ms</span></div>
+      <p class="verdict" id="verdict" role="status"></p>
+    </div>
+    <noscript><p>Enable JavaScript for the interactive bench, or download the incident JSON above.</p></noscript>
+  </section>
+  <section class="start wrap" id="approach"><div><p class="kicker"><span class="pip"></span>On your infrastructure</p><h2>Try your own rollout.</h2><p>Start the bundled checkout lab with Docker, Compose, Python 3 and Make. Connect your own service using a YAML policy and rehearse in shadow mode before enabling automatic changes.</p></div><div class="start-action"><code>make demo</code><a class="plain" href="/workspace#overview">Enter the Demo lab <span aria-hidden="true">↗</span></a></div></section>
+</main>
+<footer class="wrap"><strong>FlagGuard</strong><span>Open source · Self-hosted Flagsmith + Prometheus</span></footer>
+</body></html>

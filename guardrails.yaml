@@ -1,0 +1,37 @@
+recovery_warmup: 35s
+flagsmith:
+  api_url: "${FLAGSMITH_API_URL}"
+  admin_token: "${FLAGSMITH_ADMIN_TOKEN}"
+  environment_key: "${FLAGSMITH_ENV_KEY}"
+prometheus:
+  url: "${PROMETHEUS_URL}"
+poll_interval: 5s
+state_file: "${FLAGGUARD_STATE_FILE}"
+notifier:
+  webhook_url: "${WEBHOOK_URL}"
+  format: generic
+guardrails:
+  - name: Checkout reliability
+    flag: checkout_flow
+    variant: variant_b
+    experiment_id: ${FLAGSMITH_EXPERIMENT_ID}
+    action: disable_flag
+    minimum_samples: 20
+    sample_query: 'sum(increase(demo_http_requests_total{variant="variant_b"}[30s])) and on() (max(up{job="demo-app"}) == 1)'
+    control:
+      variant: control
+      minimum_samples: 20
+      sample_query: 'sum(increase(demo_http_requests_total{variant="control"}[30s])) and on() (max(up{job="demo-app"}) == 1)'
+    rules:
+      - metric: error_rate
+        query: '(sum(rate(demo_http_requests_total{variant="variant_b",status=~"5.."}[30s])) / sum(rate(demo_http_requests_total{variant="variant_b"}[30s]))) and on() (max(up{job="demo-app"}) == 1)'
+        control_query: '(sum(rate(demo_http_requests_total{variant="control",status=~"5.."}[30s])) / sum(rate(demo_http_requests_total{variant="control"}[30s]))) and on() (max(up{job="demo-app"}) == 1)'
+        threshold: 0.05
+        comparison: gt
+        for: 15s
+      - metric: p99_latency_ms
+        query: '(histogram_quantile(0.99, sum by (le) (rate(demo_http_request_duration_seconds_bucket{variant="variant_b"}[30s]))) * 1000) and on() (max(up{job="demo-app"}) == 1)'
+        control_query: '(histogram_quantile(0.99, sum by (le) (rate(demo_http_request_duration_seconds_bucket{variant="control"}[30s]))) * 1000) and on() (max(up{job="demo-app"}) == 1)'
+        threshold: 500
+        comparison: gt
+        for: 15s

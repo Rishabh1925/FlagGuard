@@ -1,0 +1,72 @@
+{
+  "passed": true,
+  "chaos_to_verified_rollback_seconds": 39.6,
+  "control_requests_verified": 20,
+  "rollback": {
+    "time": "2026-11-21T16:51:10.660902166Z",
+    "kind": "ROLLBACK",
+    "flag": "checkout_flow",
+    "variant": "variant_b",
+    "message": "error_rate breached for 15s; flag disabled and verified",
+    "metric": "error_rate",
+    "value": 0.2789958378396094,
+    "threshold": 0.05,
+    "change": {
+      "feature_state_id": 1,
+      "before_enabled": true,
+      "after_enabled": false,
+      "experiment_id": 1,
+      "default_before_enabled": true,
+      "default_after_enabled": false,
+      "rollout_before_enabled": true,
+      "rollout_after_enabled": false
+    },
+    "evidence": {
+      "control": {
+        "variant": "control",
+        "sample_query": "sum(increase(demo_http_requests_total{variant=\"control\"}[30s])) and on() (max(up{job=\"demo-app\"}) == 1)",
+        "samples": 50.4060487258471,
+        "minimum_samples": 20,
+        "ready": true
+      },
+      "mode": "enforce",
+      "evaluated_at": "2026-11-21T16:51:10.660902166Z",
+      "action_finished_at": "2026-11-21T16:51:31.173761486Z",
+      "action": "disable_flag",
+      "experiment_id": 1,
+      "poll_seconds": 5,
+      "sample_query": "sum(increase(demo_http_requests_total{variant=\"variant_b\"}[30s])) and on() (max(up{job=\"demo-app\"}) == 1)",
+      "samples": 36.61599391927031,
+      "minimum_samples": 20,
+      "rules": [
+        {
+          "control_query": "(sum(rate(demo_http_requests_total{variant=\"control\",status=~\"5..\"}[30s])) / sum(rate(demo_http_requests_total{variant=\"control\"}[30s]))) and on() (max(up{job=\"demo-app\"}) == 1)",
+          "control_value": 0,
+          "diagnosis": "TREATMENT_ONLY_BREACH",
+          "metric": "error_rate",
+          "query": "(sum(rate(demo_http_requests_total{variant=\"variant_b\",status=~\"5..\"}[30s])) / sum(rate(demo_http_requests_total{variant=\"variant_b\"}[30s]))) and on() (max(up{job=\"demo-app\"}) == 1)",
+          "threshold": 0.05,
+          "comparison": "gt",
+          "for_seconds": 15,
+          "value": 0.2789958378396094,
+          "breach_started_at": "2026-11-21T16:50:50.760614615Z",
+          "remaining_seconds": 0
+        },
+        {
+          "control_query": "(histogram_quantile(0.99, sum by (le) (rate(demo_http_request_duration_seconds_bucket{variant=\"control\"}[30s]))) * 1000) and on() (max(up{job=\"demo-app\"}) == 1)",
+          "control_value": 74.5625,
+          "diagnosis": "TREATMENT_ONLY_BREACH",
+          "metric": "p99_latency_ms",
+          "query": "(histogram_quantile(0.99, sum by (le) (rate(demo_http_request_duration_seconds_bucket{variant=\"variant_b\"}[30s]))) * 1000) and on() (max(up{job=\"demo-app\"}) == 1)",
+          "threshold": 500,
+          "comparison": "gt",
+          "for_seconds": 15,
+          "value": 897,
+          "breach_started_at": "2026-11-21T16:50:50.760614615Z",
+          "remaining_seconds": 0
+        }
+      ]
+    }
+  },
+  "final_state": "HEALTHY"
+}

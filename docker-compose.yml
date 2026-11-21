@@ -1,0 +1,86 @@
+name: flagguard
+x-flagsmith-env: &flagsmith-env
+  DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?Run make init first}@postgres:5432/flagsmith
+  USE_POSTGRES_FOR_ANALYTICS: 'true'
+  ENVIRONMENT: production
+  DJANGO_ALLOWED_HOSTS: '*'
+  FLAGSMITH_DOMAIN: localhost:8000
+  DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Run make init first}
+  WAREHOUSE_CREDENTIALS_SECRET: ${WAREHOUSE_CREDENTIALS_SECRET:?Run make init first}
+  TASK_RUN_METHOD: TASK_PROCESSOR
+  PROMETHEUS_ENABLED: 'true'
+  EXPERIMENTATION_ENABLED: 'true'
+
+services:
+  postgres:
+    image: postgres:15.5-alpine
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: flagsmith
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -d flagsmith -U postgres']
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  migrate-db:
+    image: ${FLAGSMITH_IMAGE:-docker.flagsmith.com/flagsmith/flagsmith:latest}
+    command: [migrate]
+    environment: *flagsmith-env
+    healthcheck: {disable: true}
+    depends_on:
+      postgres: {condition: service_healthy}
+  flagsmith:
+    image: ${FLAGSMITH_IMAGE:-docker.flagsmith.com/flagsmith/flagsmith:latest}
+    command: [serve]
+    environment: *flagsmith-env
+    ports: ['127.0.0.1:8000:8000']
+    depends_on:
+      migrate-db: {condition: service_completed_successfully}
+  flagsmith-task-processor:
+    image: ${FLAGSMITH_IMAGE:-docker.flagsmith.com/flagsmith/flagsmith:latest}
+    command: [run-task-processor]
+    environment: *flagsmith-env
+    depends_on:
+      migrate-db: {condition: service_completed_successfully}
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    volumes: ['./prometheus.yml:/etc/prometheus/prometheus.yml:ro', 'promdata:/prometheus']
+    ports: ['127.0.0.1:9090:9090']
+  demo-app:
+    build:
+      context: .
+      args: {TARGET: demo}
+    environment:
+      FLAGSMITH_ENV_KEY: ${FLAGSMITH_ENV_KEY:-}
+      FLAGSMITH_SERVER_KEY: ${FLAGSMITH_SERVER_KEY:-}
+      FLAGSMITH_API_URL: http://flagsmith:8000/api/v1/
+      FLAGSMITH_EVENTS_URL: http://flagsmith:8000/api/
+      DEMO_CONTROL_TOKEN: ${DEMO_CONTROL_TOKEN:?Run make init first}
+      DEMO_RPS: ${DEMO_RPS:-4}
+    ports: ['127.0.0.1:8081:8081']
+    depends_on: [flagsmith]
+  flagguard:
+    build:
+      context: .
+      args: {TARGET: flagguard}
+    environment:
+      FLAGSMITH_API_URL: http://flagsmith:8000/api/v1
+      FLAGSMITH_ADMIN_TOKEN: ${FLAGSMITH_ADMIN_TOKEN:-}
+      FLAGSMITH_ENV_KEY: ${FLAGSMITH_ENV_KEY:-}
+      FLAGSMITH_EXPERIMENT_ID: ${FLAGSMITH_EXPERIMENT_ID:-0}
+      PROMETHEUS_URL: http://prometheus:9090
+      FLAGGUARD_STATE_FILE: /data/state.json
+      FLAGGUARD_LISTEN: 0.0.0.0:8085
+      FLAGGUARD_LOCAL_DEMO: 'true'
+      WEBHOOK_URL: ${WEBHOOK_URL:-}
+      DEMO_APP_URL: http://demo-app:8081
+      DEMO_CONTROL_TOKEN: ${DEMO_CONTROL_TOKEN}
+    volumes: ['./guardrails.yaml:/app/guardrails.yaml:ro', 'guarddata:/data']
+    ports: ['127.0.0.1:8085:8085']
+    depends_on: [prometheus, demo-app]
+
+volumes:
+  pgdata:
+  promdata:
+  guarddata:

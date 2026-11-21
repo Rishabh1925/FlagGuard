@@ -1,0 +1,42 @@
+// State/render checks without a browser. Layout and native interactions need browser QA.
+const {readFileSync}=require('node:fs');
+const vm=require('node:vm');
+const assert=require('node:assert/strict');
+const elements=new Map();
+function element(id){if(!elements.has(id))elements.set(id,{textContent:'',innerHTML:'',value:id==='#event-filter'?'all':'',hidden:false,disabled:false,dataset:{},classList:{toggle(){}},addEventListener(){},setAttribute(){},removeAttribute(){}});return elements.get(id)}
+const ctx=vm.createContext({document:{querySelector:element,querySelectorAll:()=>[]},window:{addEventListener(){}},location:{hash:'#overview'},fetch:()=>new Promise(()=>{}),AbortSignal,setTimeout:()=>0,clearTimeout(){},setInterval(){},innerWidth:1200,console});
+vm.runInContext(readFileSync('internal/server/static/app.js','utf8'),ctx);
+function run(code){return vm.runInContext(code,ctx)}
+run(`states=[{flag:'checkout',name:'Checkout',variant:'variant_b',mode:'enforce',status:'HEALTHY',message:'Healthy',updated_at:new Date().toISOString(),flagsmith_ok:true,prometheus_ok:true,samples:25,minimum_samples:20,rules:[{metric:'error_rate',value:0,threshold:.05,comparison:'gt',for_seconds:15,query:'rate(errors)',remaining_seconds:15}]}];connected=true;renderStatus();renderGuards()`);
+assert.equal(element('#protected').textContent,1);
+run(`states[0].mode='shadow';renderStatus();renderGuards()`);
+assert.equal(element('#protected').textContent,0);
+assert.match(element('#notice-title').textContent,/Shadow/);
+run(`states[0].status='SHADOW_TRIGGERED';renderStatus()`);
+assert.match(element('#notice-title').textContent,/would roll back/);
+run(`states[0].updated_at=new Date(Date.now()-60000).toISOString();renderStatus()`);
+assert.equal(element('#notice-title').textContent,'Telemetry is stale');
+assert.match(element('#connections').innerHTML,/Unknown/);
+run(`connected=false;demoEnabled=true;demo={evaluations_ok:true};renderStatus();renderDemo()`);
+assert.equal(element('#chaos').disabled,true);
+assert.equal(element('#protected').textContent,'—');
+run(`events=[{time:new Date().toISOString(),kind:'ERROR',flag:'<script>bad</script>',message:'Network unavailable'},{time:new Date().toISOString(),kind:'WOULD_ROLLBACK',flag:'checkout',message:'Would roll back',evidence:{mode:'shadow',rules:[],samples:25,minimum_samples:20}}];renderEvents()`);
+assert.ok(!element('#all-events').innerHTML.includes('<script>'));
+element('#event-filter').value='decisions';run('renderEvents()');
+assert.equal(element('#result-count').textContent,'1 retained events');
+run(`selected=eventKey(events[1]);renderEvidence()`);
+assert.match(element('#evidence').innerHTML,/No flag changes were sent/);
+element('#search').value='does-not-exist';run('renderEvents()');
+assert.equal(element('#result-count').textContent,'0 retained events');
+assert.equal(run(`unit('custom_metric')`),'');
+run(`connected=true;states[0].updated_at=new Date().toISOString();states[0].status='BREACHING';renderDemo()`);
+assert.equal(element('#demo-stage').textContent,'Confirming a sustained breach');
+run(`states[0].status='SHADOW_TRIGGERED';renderDemo()`);
+assert.equal(element('#demo-stage').textContent,'Proposed rollback recorded');
+run(`states[0].status='ROLLED_BACK';renderDemo()`);
+assert.equal(element('#demo-stage').textContent,'Rollback verified');
+run(`states[0].updated_at=new Date(Date.now()-60000).toISOString();renderDemo()`);
+assert.equal(element('#demo-stage').textContent,'Telemetry is stale');
+run(`location.hash='#lab';route()`);
+assert.equal(element('#breadcrumb').textContent,'Overview');
+console.log('Dashboard state checks passed: shadow, stale, disconnected, filters, escaping, evidence, metric units, integrated demo stages, legacy lab routing.');

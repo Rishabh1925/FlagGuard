@@ -1,0 +1,6 @@
+# Run Caddy on the same host as the loopback-published FlagGuard container.
+# Set FLAGGUARD_DOMAIN to a DNS name pointing at this host. Caddy provisions TLS.
+{$FLAGGUARD_DOMAIN} {
+    reverse_proxy 127.0.0.1:8085
+    header Strict-Transport-Security "max-age=31536000"
+}

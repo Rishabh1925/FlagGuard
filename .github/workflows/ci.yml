@@ -1,0 +1,25 @@
+name: Go checks
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go test -race ./...
+      - run: go vet ./...
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.10.0 ./...
+      - run: go build ./...
+      - run: node --check internal/server/static/app.js && node scripts/dashboard.test.cjs
+      - run: python3 scripts/init-env.py && docker compose config --quiet
+      - name: Validate standalone configuration
+        run: docker compose -f compose.standalone.yml config --quiet
+        env:
+          FLAGGUARD_AUTH_TOKEN: ci-placeholder-not-a-real-secret-000000
+          FLAGSMITH_API_URL: http://flagsmith:8000/api/v1
+          FLAGSMITH_ADMIN_TOKEN: ci-placeholder
+          FLAGSMITH_ENV_KEY: ci-placeholder
+          PROMETHEUS_URL: http://prometheus:9090
