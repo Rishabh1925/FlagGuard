@@ -1,0 +1,12 @@
+modules:
+  price_contract:
+    prober: http
+    timeout: 2s
+    http:
+      preferred_ip_protocol: ip4
+      valid_status_codes: [200]
+      follow_redirects: false
+      body_size_limit: 32KB
+      fail_if_body_json_not_matches_cel: >-
+        body.sku == 'coffee' && body.currency == 'USD' &&
+        has(body.amount_cents) && body.amount_cents == 1299

@@ -1,0 +1,21 @@
+name: flagguard-price-contract
+services:
+  prices:
+    image: python:3.12-slim
+    working_dir: /tmp/prices
+    volumes: [./fixtures:/fixtures:ro]
+    command:
+      - sh
+      - -ec
+      - |
+        cp /fixtures/price.json control.json
+        cp /fixtures/price.json candidate.json
+        exec python -m http.server 8000
+  exporter:
+    image: prom/blackbox-exporter:v0.27.0
+    command: [--config.file=/etc/blackbox/probes.yml]
+    volumes: [./probes.yml:/etc/blackbox/probes.yml:ro]
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    volumes: [./prometheus.yml:/etc/prometheus/prometheus.yml:ro]
+    ports: ["127.0.0.1:${PRICE_PROMETHEUS_PORT:-19090}:9090"]

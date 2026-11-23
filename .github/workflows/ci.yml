@@ -23,3 +23,19 @@ jobs:
           FLAGSMITH_ADMIN_TOKEN: ci-placeholder
           FLAGSMITH_ENV_KEY: ci-placeholder
           PROMETHEUS_URL: http://prometheus:9090
+      - name: Check the recorded checkout incident
+        uses: ./
+        with:
+          policy: guardrails.yaml
+          trace: docs/evidence/checkout-trace.json
+          expect: checkout_flow=error_rate
+      - name: Check quiet, transient and sustained price incidents
+        uses: ./
+        with:
+          policy: deploy/blackbox/guardrails.yaml
+          suite: deploy/blackbox/cases/suite.json
+      - name: Check indexed and regressed PostgreSQL queries
+        uses: ./
+        with:
+          policy: deploy/postgres/guardrails.yaml
+          suite: deploy/postgres/cases/suite.json

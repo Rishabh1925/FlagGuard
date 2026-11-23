@@ -1,0 +1,34 @@
+mode: shadow
+poll_interval: 5s
+recovery_warmup: 35s
+state_file: "${FLAGGUARD_STATE_FILE}"
+flagsmith:
+  api_url: "${FLAGSMITH_API_URL}"
+  admin_token: "${FLAGSMITH_ADMIN_TOKEN}"
+  environment_key: "${FLAGSMITH_ENV_KEY}"
+prometheus:
+  url: "${PROMETHEUS_URL}"
+guardrails:
+  - name: Price response contract
+    flag: price_response_v2
+    variant: candidate
+    action: disable_flag
+    minimum_samples: 4
+    sample_query: 'count_over_time(probe_success{job="price_contract",variant="candidate"}[30s]) and (up{job="price_contract",variant="candidate"} == 1)'
+    recovery_probe:
+      metric: probe_success
+      labels: {job: price_contract, variant: candidate}
+      window: 20s
+      max_gap: 8s
+      minimum_samples: 3
+    control:
+      variant: control
+      minimum_samples: 4
+      sample_query: 'count_over_time(probe_success{job="price_contract",variant="control"}[30s]) and (up{job="price_contract",variant="control"} == 1)'
+    rules:
+      - metric: contract_pass_fraction
+        query: 'avg_over_time(probe_success{job="price_contract",variant="candidate"}[30s]) and (up{job="price_contract",variant="candidate"} == 1)'
+        control_query: 'avg_over_time(probe_success{job="price_contract",variant="control"}[30s]) and (up{job="price_contract",variant="control"} == 1)'
+        threshold: 0.75
+        comparison: lt
+        for: 15s

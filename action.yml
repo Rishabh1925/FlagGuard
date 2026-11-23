@@ -1,0 +1,62 @@
+name: FlagGuard policy replay
+description: Test a Flagsmith guardrail against saved Prometheus traffic before merging a policy change.
+inputs:
+  policy:
+    description: Guardrail YAML path in the checked-out repository
+    required: true
+  trace:
+    description: Recorded FlagGuard trace JSON path
+    required: false
+  expect:
+    description: Expected flag=trigger_metric, or flag=none for a fully observed window
+    required: false
+  gap-flag:
+    description: Flag to rehearse with one unavailable evaluation at a time during rollback confirmation
+    required: false
+  require-by:
+    description: Deadline from trace start for every gap scenario, for example 60s
+    required: false
+  suite:
+    description: JSON manifest of recorded cases, used instead of trace and expect
+    required: false
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-go@v5
+      with:
+        go-version-file: ${{ github.action_path }}/go.mod
+        cache: false
+    - name: Replay the recorded traffic
+      shell: bash
+      env:
+        POLICY: ${{ inputs.policy }}
+        SUITE: ${{ inputs.suite }}
+        TRACE: ${{ inputs.trace }}
+        GAP_FLAG: ${{ inputs.gap-flag }}
+        REQUIRE_BY: ${{ inputs.require-by }}
+        EXPECT: ${{ inputs.expect }}
+      run: |
+        set -euo pipefail
+        replay_dir=$(mktemp -d "${RUNNER_TEMP}/flagguard-replay.XXXXXX")
+        go build -C "$GITHUB_ACTION_PATH" -o "$replay_dir/flagguard" ./cmd/flagguard
+        if [[ -n "$GAP_FLAG" || -n "$REQUIRE_BY" ]]; then
+          if [[ -z "$TRACE" || -z "$GAP_FLAG" || -z "$REQUIRE_BY" || -n "$SUITE" || -n "$EXPECT" ]]; then
+            echo 'A telemetry deadline check needs trace, gap-flag and require-by.' >&2
+            exit 2
+          fi
+          args=(-replay "$TRACE" -gap-check "$GAP_FLAG" -require-by "$REQUIRE_BY")
+        elif [[ -n "$SUITE" && -z "$TRACE" && -z "$EXPECT" ]]; then
+          args=(-suite "$SUITE")
+        elif [[ -z "$SUITE" && -n "$TRACE" && -n "$EXPECT" ]]; then
+          args=(-replay "$TRACE" -expect "$EXPECT")
+        else
+          echo 'Specify either suite or both trace and expect.' >&2
+          exit 2
+        fi
+        status=0
+        "$replay_dir/flagguard" -config "$POLICY" "${args[@]}" -format text > "$replay_dir/report" || status=$?
+        cat "$replay_dir/report"
+        if [[ -s "$replay_dir/report" ]]; then
+          sed 's/^/    /' "$replay_dir/report" >> "$GITHUB_STEP_SUMMARY"
+        fi
+        exit "$status"

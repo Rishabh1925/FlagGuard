@@ -1,0 +1,10 @@
+{
+  "cases": [
+    {
+      "name": "checkout_flow rollback",
+      "trace": "trace.json",
+      "expect": "checkout_flow=error_rate",
+      "decision_poll": 6
+    }
+  ]
+}

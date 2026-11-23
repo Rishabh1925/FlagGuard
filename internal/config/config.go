@@ -6,6 +6,9 @@ import (
 	"math"
 	"net/url"
 	"os"
+	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,16 +35,39 @@ type Config struct {
 	Guardrails []Guardrail `yaml:"guardrails"`
 }
 type Guardrail struct {
-	Control        *Control `yaml:"control" json:"control,omitempty"`
-	ExperimentID   int      `yaml:"experiment_id" json:"experiment_id"`
-	Name           string   `yaml:"name" json:"name"`
-	Flag           string   `yaml:"flag" json:"flag"`
-	Variant        string   `yaml:"variant" json:"variant"`
-	Action         string   `yaml:"action" json:"action"`
-	MinimumSamples float64  `yaml:"minimum_samples" json:"minimum_samples"`
-	SampleQuery    string   `yaml:"sample_query" json:"sample_query"`
-	Rules          []Rule   `yaml:"rules" json:"rules"`
+	RecoveryProbe  *RecoveryProbe `yaml:"recovery_probe" json:"recovery_probe,omitempty"`
+	Control        *Control       `yaml:"control" json:"control,omitempty"`
+	ExperimentID   int            `yaml:"experiment_id" json:"experiment_id"`
+	Name           string         `yaml:"name" json:"name"`
+	Flag           string         `yaml:"flag" json:"flag"`
+	Variant        string         `yaml:"variant" json:"variant"`
+	Action         string         `yaml:"action" json:"action"`
+	MinimumSamples float64        `yaml:"minimum_samples" json:"minimum_samples"`
+	SampleQuery    string         `yaml:"sample_query" json:"sample_query"`
+	Rules          []Rule         `yaml:"rules" json:"rules"`
 }
+
+// RecoveryProbe identifies a binary series scraped directly from the disabled variant.
+type RecoveryProbe struct {
+	Metric         string            `yaml:"metric" json:"metric"`
+	Labels         map[string]string `yaml:"labels" json:"labels"`
+	Window         time.Duration     `yaml:"window" json:"window"`
+	MaxGap         time.Duration     `yaml:"max_gap" json:"max_gap"`
+	MinimumSamples int               `yaml:"minimum_samples" json:"minimum_samples"`
+}
+
+var metricName = regexp.MustCompile(`^[a-zA-Z_:][a-zA-Z0-9_:]*$`)
+var labelName = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+
+func (p RecoveryProbe) Selector() string {
+	labels := make([]string, 0, len(p.Labels))
+	for key, value := range p.Labels {
+		labels = append(labels, key+"="+strconv.Quote(value))
+	}
+	sort.Strings(labels)
+	return p.Metric + "{" + strings.Join(labels, ",") + "}"
+}
+
 type Control struct {
 	Variant        string  `yaml:"variant" json:"variant"`
 	SampleQuery    string  `yaml:"sample_query" json:"sample_query"`
@@ -106,6 +132,16 @@ func (c Config) Validate() error {
 			return fmt.Errorf("guardrails require names, variants and unique flag names")
 		}
 		seen[g.Flag] = true
+		if p := g.RecoveryProbe; p != nil {
+			if !metricName.MatchString(p.Metric) || len(p.Labels) == 0 || p.Window < time.Second || p.Window%time.Millisecond != 0 || p.MaxGap <= 0 || p.MaxGap >= p.Window || p.MinimumSamples < 2 {
+				return fmt.Errorf("%s: recovery_probe needs a binary metric, identifying labels, at least two samples and a max_gap shorter than the window", g.Flag)
+			}
+			for key, value := range p.Labels {
+				if !labelName.MatchString(key) || key == "__name__" || value == "" {
+					return fmt.Errorf("%s: invalid recovery probe label", g.Flag)
+				}
+			}
+		}
 		if g.Control != nil && (g.Control.Variant == "" || g.Control.Variant == g.Variant || g.Control.SampleQuery == "" || g.Control.MinimumSamples <= 0 || math.IsNaN(g.Control.MinimumSamples) || math.IsInf(g.Control.MinimumSamples, 0)) {
 			return fmt.Errorf("%s: invalid control comparison", g.Flag)
 		}

@@ -62,3 +62,31 @@ func TestControlConfigurationRequiresCompleteQueries(t *testing.T) {
 		t.Fatal("accepted orphaned control query")
 	}
 }
+
+func TestRecoveryProbeValidation(t *testing.T) {
+	c := Config{PollInterval: time.Second, Guardrails: []Guardrail{{Name: "Price", Flag: "price", Variant: "candidate", Action: "disable_flag", Rules: []Rule{{Metric: "errors", Query: "errors", Comparison: "gt"}}}}}
+	c.Flagsmith.APIURL = "http://flagsmith.test"
+	c.Prometheus.URL = "http://metrics.test"
+	probe := RecoveryProbe{Metric: "probe_success", Labels: map[string]string{"variant": "candidate", "job": "price_contract"}, Window: 20 * time.Second, MaxGap: 8 * time.Second, MinimumSamples: 3}
+	c.Guardrails[0].RecoveryProbe = &probe
+	if err := c.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if got := probe.Selector(); got != `probe_success{job="price_contract",variant="candidate"}` {
+		t.Fatal(got)
+	}
+	for _, edit := range []func(*RecoveryProbe){
+		func(p *RecoveryProbe) { p.Metric = "rate(foo)" },
+		func(p *RecoveryProbe) { p.Labels = nil },
+		func(p *RecoveryProbe) { p.Labels = map[string]string{"1job": "bad"} },
+		func(p *RecoveryProbe) { p.MaxGap = p.Window },
+		func(p *RecoveryProbe) { p.MinimumSamples = 1 },
+	} {
+		invalid := probe
+		edit(&invalid)
+		c.Guardrails[0].RecoveryProbe = &invalid
+		if c.Validate() == nil {
+			t.Fatalf("invalid recovery probe accepted: %+v", invalid)
+		}
+	}
+}

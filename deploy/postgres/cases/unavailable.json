@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "start": "2026-11-23T21:29:05.97Z",
+  "step_milliseconds": 1000,
+  "polls": 4,
+  "series": {
+    "count(flagguard_postgres_shared_blocks{job=\"flagguard_postgres\",variant=\"control\"} and on(job,instance) (up{job=\"flagguard_postgres\"} == 1))": [
+      null,
+      null,
+      null,
+      null
+    ],
+    "flagguard_postgres_shared_blocks{job=\"flagguard_postgres\",variant=\"candidate\"} and on(job,instance) (up{job=\"flagguard_postgres\"} == 1)": [
+      null,
+      null,
+      null,
+      null
+    ],
+    "flagguard_postgres_shared_blocks{job=\"flagguard_postgres\",variant=\"control\"} and on(job,instance) (up{job=\"flagguard_postgres\"} == 1)": [
+      null,
+      null,
+      null,
+      null
+    ]
+  }
+}

@@ -1,0 +1,134 @@
+{
+  "time": "2026-11-23T20:20:24.492815239Z",
+  "kind": "ROLLBACK",
+  "flag": "checkout_flow",
+  "variant": "variant_b",
+  "message": "error_rate breached for 15s; flag disabled and verified",
+  "metric": "error_rate",
+  "value": 0.2765957446808511,
+  "threshold": 0.05,
+  "change": {
+    "feature_state_id": 1,
+    "before_enabled": true,
+    "after_enabled": false,
+    "experiment_id": 1,
+    "default_before_enabled": true,
+    "default_after_enabled": false,
+    "rollout_before_enabled": true,
+    "rollout_after_enabled": false
+  },
+  "evidence": {
+    "observations": [
+      {
+        "at": "2026-11-23T20:19:59.492503122Z",
+        "values": [
+          57.599999999999994,
+          62.4,
+          0,
+          0,
+          74.625,
+          74.00000000000001
+        ]
+      },
+      {
+        "at": "2026-11-23T20:20:04.492382265Z",
+        "values": [
+          54,
+          63.599999999999994,
+          0.044444444444444446,
+          0,
+          883.1249999999999,
+          74.05357142857143
+        ]
+      },
+      {
+        "at": "2026-11-23T20:20:09.49221587Z",
+        "values": [
+          59.99999999999999,
+          60,
+          0.08,
+          0,
+          893.75,
+          74.26470588235294
+        ]
+      },
+      {
+        "at": "2026-11-23T20:20:14.492695404Z",
+        "values": [
+          62.39999999999999,
+          55.199999999999996,
+          0.11538461538461538,
+          0,
+          895.6666666666667,
+          74.28125
+        ]
+      },
+      {
+        "at": "2026-11-23T20:20:19.49231714Z",
+        "values": [
+          61.199999999999996,
+          56.4,
+          0.19607843137254902,
+          0,
+          896.6739130434784,
+          74.09615384615384
+        ]
+      },
+      {
+        "at": "2026-11-23T20:20:24.492815239Z",
+        "values": [
+          56.4,
+          62.4,
+          0.2765957446808511,
+          0,
+          897.6500000000001,
+          74.07142857142857
+        ]
+      }
+    ],
+    "control": {
+      "variant": "control",
+      "sample_query": "sum(increase(demo_http_requests_total{variant=\"control\"}[30s])) and on() (max(up{job=\"demo-app\"}) == 1)",
+      "samples": 62.4,
+      "minimum_samples": 20,
+      "ready": true
+    },
+    "mode": "enforce",
+    "evaluated_at": "2026-11-23T20:20:24.492815239Z",
+    "action_finished_at": "2026-11-23T20:20:25.678696357Z",
+    "action": "disable_flag",
+    "experiment_id": 1,
+    "poll_seconds": 5,
+    "sample_query": "sum(increase(demo_http_requests_total{variant=\"variant_b\"}[30s])) and on() (max(up{job=\"demo-app\"}) == 1)",
+    "samples": 56.4,
+    "minimum_samples": 20,
+    "rules": [
+      {
+        "control_query": "(sum(rate(demo_http_requests_total{variant=\"control\",status=~\"5..\"}[30s])) / sum(rate(demo_http_requests_total{variant=\"control\"}[30s]))) and on() (max(up{job=\"demo-app\"}) == 1)",
+        "control_value": 0,
+        "diagnosis": "TREATMENT_ONLY_BREACH",
+        "metric": "error_rate",
+        "query": "(sum(rate(demo_http_requests_total{variant=\"variant_b\",status=~\"5..\"}[30s])) / sum(rate(demo_http_requests_total{variant=\"variant_b\"}[30s]))) and on() (max(up{job=\"demo-app\"}) == 1)",
+        "threshold": 0.05,
+        "comparison": "gt",
+        "for_seconds": 15,
+        "value": 0.2765957446808511,
+        "breach_started_at": "2026-11-23T20:20:09.49221587Z",
+        "remaining_seconds": 0
+      },
+      {
+        "control_query": "(histogram_quantile(0.99, sum by (le) (rate(demo_http_request_duration_seconds_bucket{variant=\"control\"}[30s]))) * 1000) and on() (max(up{job=\"demo-app\"}) == 1)",
+        "control_value": 74.07142857142857,
+        "diagnosis": "TREATMENT_ONLY_BREACH",
+        "metric": "p99_latency_ms",
+        "query": "(histogram_quantile(0.99, sum by (le) (rate(demo_http_request_duration_seconds_bucket{variant=\"variant_b\"}[30s]))) * 1000) and on() (max(up{job=\"demo-app\"}) == 1)",
+        "threshold": 500,
+        "comparison": "gt",
+        "for_seconds": 15,
+        "value": 897.6500000000001,
+        "breach_started_at": "2026-11-23T20:20:04.492382265Z",
+        "remaining_seconds": 0
+      }
+    ]
+  }
+}

@@ -4,3 +4,7 @@ tmp
 data
 bin
 node_modules
+LocalStuff
+.DS_Store
+__pycache__
+*.pyc

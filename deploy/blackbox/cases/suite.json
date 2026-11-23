@@ -1,0 +1,7 @@
+{
+  "cases": [
+    {"name": "Healthy responses", "trace": "healthy.json", "expect": "price_response_v2=none"},
+    {"name": "One malformed response", "trace": "single.json", "expect": "price_response_v2=none"},
+    {"name": "Sustained schema change", "trace": "sustained.json", "expect": "price_response_v2=contract_pass_fraction"}
+  ]
+}

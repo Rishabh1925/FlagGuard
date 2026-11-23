@@ -1,0 +1,162 @@
+{
+  "scope": "Local self-hosted Flagsmith, synthetic price fixture. Each client read evaluated the environment flag and fetched the selected HTTP endpoint.",
+  "flag": "price_response_v2",
+  "rollback": {
+    "time": "2026-11-22T16:46:53.583808+05:30",
+    "kind": "ROLLBACK",
+    "flag": "price_response_v2",
+    "variant": "candidate",
+    "message": "contract_pass_fraction breached for 15s; flag disabled and verified",
+    "metric": "contract_pass_fraction",
+    "value": 0,
+    "threshold": 0.75,
+    "change": {
+      "feature_state_id": 3,
+      "before_enabled": true,
+      "after_enabled": false,
+      "default_before_enabled": true,
+      "default_after_enabled": false
+    },
+    "evidence": {
+      "control": {
+        "variant": "control",
+        "sample_query": "count_over_time(probe_success{job=\"price_contract\",variant=\"control\"}[30s]) and (up{job=\"price_contract\",variant=\"control\"} == 1)",
+        "samples": 6,
+        "minimum_samples": 4,
+        "ready": true
+      },
+      "mode": "enforce",
+      "evaluated_at": "2026-11-22T16:46:53.583808+05:30",
+      "action_finished_at": "2026-11-22T16:47:01.292716+05:30",
+      "action": "disable_flag",
+      "poll_seconds": 5,
+      "sample_query": "count_over_time(probe_success{job=\"price_contract\",variant=\"candidate\"}[30s]) and (up{job=\"price_contract\",variant=\"candidate\"} == 1)",
+      "samples": 6,
+      "minimum_samples": 4,
+      "rules": [
+        {
+          "control_query": "avg_over_time(probe_success{job=\"price_contract\",variant=\"control\"}[30s]) and (up{job=\"price_contract\",variant=\"control\"} == 1)",
+          "control_value": 1,
+          "diagnosis": "TREATMENT_ONLY_BREACH",
+          "metric": "contract_pass_fraction",
+          "query": "avg_over_time(probe_success{job=\"price_contract\",variant=\"candidate\"}[30s]) and (up{job=\"price_contract\",variant=\"candidate\"} == 1)",
+          "threshold": 0.75,
+          "comparison": "lt",
+          "for_seconds": 15,
+          "value": 0,
+          "breach_started_at": "2026-11-22T16:46:33.584184+05:30",
+          "remaining_seconds": 0
+        }
+      ]
+    }
+  },
+  "broken_candidate_http_status": 200,
+  "refused_reset": {
+    "http_status": 409,
+    "response": {
+      "error": "recovery held: The candidate failed a probe. Fix the candidate and wait for a clean window."
+    },
+    "probes": {
+      "status": "FAILING",
+      "detail": "The candidate failed a probe. Fix the candidate and wait for a clean window.",
+      "selector": "probe_success{job=\"price_contract\",variant=\"candidate\"}",
+      "window_seconds": 20,
+      "max_gap_seconds": 8,
+      "minimum_samples": 3,
+      "observed": 1,
+      "passed": 0,
+      "started_at": "2026-11-22T16:47:01.299625+05:30",
+      "checked_at": "2026-11-22T16:47:08.583323+05:30",
+      "recent": [
+        {
+          "at": "2026-11-22T11:17:05.376Z",
+          "passed": false
+        }
+      ]
+    }
+  },
+  "while_blocked": {
+    "variant": "control",
+    "verified_reads": 5,
+    "amount_cents": 1299
+  },
+  "seconds_from_fixture_repair_to_observed_ready": 23.4,
+  "ready_while_flag_disabled": {
+    "status": "READY",
+    "detail": "The candidate passed the full probe window. An operator can now re-enable the flag.",
+    "selector": "probe_success{job=\"price_contract\",variant=\"candidate\"}",
+    "window_seconds": 20,
+    "max_gap_seconds": 8,
+    "minimum_samples": 3,
+    "observed": 4,
+    "passed": 4,
+    "started_at": "2026-11-22T16:47:01.299625+05:30",
+    "checked_at": "2026-11-22T16:47:43.583559+05:30",
+    "recent": [
+      {
+        "at": "2026-11-22T11:17:25.376Z",
+        "passed": true
+      },
+      {
+        "at": "2026-11-22T11:17:30.376Z",
+        "passed": true
+      },
+      {
+        "at": "2026-11-22T11:17:35.376Z",
+        "passed": true
+      },
+      {
+        "at": "2026-11-22T11:17:40.376Z",
+        "passed": true
+      }
+    ]
+  },
+  "operator_reset": {
+    "recovery_probe": {
+      "status": "READY",
+      "detail": "The candidate passed the full probe window. An operator can now re-enable the flag.",
+      "selector": "probe_success{job=\"price_contract\",variant=\"candidate\"}",
+      "window_seconds": 20,
+      "max_gap_seconds": 8,
+      "minimum_samples": 3,
+      "observed": 4,
+      "passed": 4,
+      "started_at": "2026-11-22T16:47:01.299625+05:30",
+      "checked_at": "2026-11-22T16:47:49.759955+05:30",
+      "recent": [
+        {
+          "at": "2026-11-22T11:17:30.376Z",
+          "passed": true
+        },
+        {
+          "at": "2026-11-22T11:17:35.376Z",
+          "passed": true
+        },
+        {
+          "at": "2026-11-22T11:17:40.376Z",
+          "passed": true
+        },
+        {
+          "at": "2026-11-22T11:17:45.376Z",
+          "passed": true
+        }
+      ]
+    },
+    "time": "2026-11-22T16:47:55.979705+05:30",
+    "kind": "RESET",
+    "flag": "price_response_v2",
+    "message": "Flag re-enabled and verified; 35s metric warm-up",
+    "change": {
+      "feature_state_id": 3,
+      "before_enabled": false,
+      "after_enabled": true,
+      "default_before_enabled": false,
+      "default_after_enabled": true
+    }
+  },
+  "after_reset": {
+    "variant": "candidate",
+    "verified_reads": 5,
+    "amount_cents": 1299
+  }
+}

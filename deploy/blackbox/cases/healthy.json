@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "start": "2026-11-22T05:35:11.785Z",
+  "step_milliseconds": 5000,
+  "polls": 8,
+  "series": {
+    "avg_over_time(probe_success{job=\"price_contract\",variant=\"candidate\"}[30s]) and (up{job=\"price_contract\",variant=\"candidate\"} == 1)": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "avg_over_time(probe_success{job=\"price_contract\",variant=\"control\"}[30s]) and (up{job=\"price_contract\",variant=\"control\"} == 1)": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "count_over_time(probe_success{job=\"price_contract\",variant=\"candidate\"}[30s]) and (up{job=\"price_contract\",variant=\"candidate\"} == 1)": [
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6
+    ],
+    "count_over_time(probe_success{job=\"price_contract\",variant=\"control\"}[30s]) and (up{job=\"price_contract\",variant=\"control\"} == 1)": [
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6
+    ]
+  }
+}

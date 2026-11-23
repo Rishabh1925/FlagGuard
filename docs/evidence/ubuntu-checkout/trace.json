@@ -1,0 +1,64 @@
+{
+  "poll_times": [
+    "2026-11-23T20:19:59.492503122Z",
+    "2026-11-23T20:20:04.492382265Z",
+    "2026-11-23T20:20:09.49221587Z",
+    "2026-11-23T20:20:14.492695404Z",
+    "2026-11-23T20:20:19.49231714Z",
+    "2026-11-23T20:20:24.492815239Z"
+  ],
+  "version": 2,
+  "start": "2026-11-23T20:19:59.492503122Z",
+  "step_milliseconds": 5000,
+  "polls": 6,
+  "series": {
+    "(histogram_quantile(0.99, sum by (le) (rate(demo_http_request_duration_seconds_bucket{variant=\"control\"}[30s]))) * 1000) and on() (max(up{job=\"demo-app\"}) == 1)": [
+      74.00000000000001,
+      74.05357142857143,
+      74.26470588235294,
+      74.28125,
+      74.09615384615384,
+      74.07142857142857
+    ],
+    "(histogram_quantile(0.99, sum by (le) (rate(demo_http_request_duration_seconds_bucket{variant=\"variant_b\"}[30s]))) * 1000) and on() (max(up{job=\"demo-app\"}) == 1)": [
+      74.625,
+      883.1249999999999,
+      893.75,
+      895.6666666666667,
+      896.6739130434784,
+      897.6500000000001
+    ],
+    "(sum(rate(demo_http_requests_total{variant=\"control\",status=~\"5..\"}[30s])) / sum(rate(demo_http_requests_total{variant=\"control\"}[30s]))) and on() (max(up{job=\"demo-app\"}) == 1)": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "(sum(rate(demo_http_requests_total{variant=\"variant_b\",status=~\"5..\"}[30s])) / sum(rate(demo_http_requests_total{variant=\"variant_b\"}[30s]))) and on() (max(up{job=\"demo-app\"}) == 1)": [
+      0,
+      0.044444444444444446,
+      0.08,
+      0.11538461538461538,
+      0.19607843137254902,
+      0.2765957446808511
+    ],
+    "sum(increase(demo_http_requests_total{variant=\"control\"}[30s])) and on() (max(up{job=\"demo-app\"}) == 1)": [
+      62.4,
+      63.599999999999994,
+      60,
+      55.199999999999996,
+      56.4,
+      62.4
+    ],
+    "sum(increase(demo_http_requests_total{variant=\"variant_b\"}[30s])) and on() (max(up{job=\"demo-app\"}) == 1)": [
+      57.599999999999994,
+      54,
+      59.99999999999999,
+      62.39999999999999,
+      61.199999999999996,
+      56.4
+    ]
+  }
+}

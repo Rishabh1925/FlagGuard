@@ -20,7 +20,7 @@ Authentication currently represents one operator role, not individual identities
 2. Put secret files in a dedicated host directory with mode `0700`. Make each mounted file readable by container UID 10001 (for example mode `0444` inside that private directory, or ownership 10001 and mode `0400`). File contents never belong in Git. `_FILE` and a literal secret environment variable cannot both be set.
 3. Copy `deploy/production.env.example` outside the repository and replace its **paths**, URLs, hostname, image digest, experiment ID, and `GUARDRAILS_FILE`. Use the actual experiment ID when protecting an experiment; `0` only covers a standalone environment flag. No placeholder credentials may be used. Flagsmith credentials need only the required environment permissions where supported.
 4. Review the YAML. Start with `mode: shadow`; use query labels that uniquely select the intended service and variant. Set `recovery_warmup` at least as long as the longest query window plus a scrape/poll margin. Default is 35 seconds for the bundled 30-second window. Configure explicit sample gates. Control comparisons are diagnostic and do not suppress absolute treatment limits.
-5. Run `docker compose --env-file /secure/flagguard.env -f compose.production.yml config --quiet`, then run the same command prefix with `run --rm --no-deps flagguard -check`. Preflight is read-only and checks the current treatment metrics; it does not prove mutation permissions or control readiness.
+5. Run `docker compose --env-file /secure/flagguard.env -f compose.production.yml config --quiet`, then run the same command prefix with `run --rm --no-deps flagguard -check`. Preflight reads both variants at the same evaluation time. Check entries marked `advisory` for missing control data or insufficient control traffic. The readiness exit code uses the flag and treatment checks. Test write permissions separately in staging.
 6. Start with the same prefix and `up -d`. Verify HTTPS, login, `/readyz`, and upstream connections. Run an authorized fault exercise against a staging service first. Switch to enforce mode only after inspecting shadow decisions and verifying the configured flag's behavior.
 
 Docker Compose mounted secrets: https://docs.docker.com/compose/how-tos/use-secrets/
@@ -63,6 +63,15 @@ Each rule query must return one instant-vector series. For the example threshold
 For ACTION_REQUIRED, inspect both the default flag and experiment rollout in Flagsmith. A multi-resource change may have partially succeeded. The controller deliberately does not retry ambiguous writes automatically. Confirm the application's served variant independently; configuration read-back is not proof of propagation.
 
 Fix the application and turn off any test fault. Review the retained evidence, then use **Review recovery**. The controller persists recovery intent before enabling either resource and retains the configured warm-up deadline across restarts. If storage fails after the API call, the controller stays locked for review. Never delete state to bypass a lock.
+
+### Require evidence before reopening a flag
+
+Add `recovery_probe` to a policy when an independent probe can reach the disabled candidate. The probe must exercise the same version an enabled flag would serve and expose one binary Prometheus series. A probe that follows the public flag will test control after rollback. A gauge that repeats the last successful result during a probe outage can also mask a failure. The price example uses a Blackbox Exporter probe that makes a fresh request on every scrape. [Example policy](../deploy/blackbox/guardrails.yaml)
+
+FlagGuard reads individual scrape timestamps. The window starts with the first observed off state. It requires a passing value for every observed sample, the configured minimum count, and gaps within `max_gap` between scrapes and at both window edges. Set `max_gap` to allow expected scrape jitter. A duplicate series, an invalid value, or missing coverage holds recovery. A restart or a controller polling gap over three intervals starts a fresh window.
+
+Review **Test the fix before reopening** in the workspace. The flag stays off until an operator requests recovery. At that point FlagGuard reads the flag and probes again. A held request returns HTTP 409 and records a `RECOVERY_HELD` event. A successful reset saves the probe evidence with the verified Flagsmith change. These readings cover the configured probe contract and observation window. Check other important workflows separately.
+
 
 Flagsmith's rollout update currently includes its current value/weights because the API requires them. Concurrent edits by another writer are not transactionally coordinated. Assign one owner to the affected flags during automated enforcement. Arbitrary identity/segment overrides are outside the tested rollback scope; verify your flag model before enabling this controller.
 

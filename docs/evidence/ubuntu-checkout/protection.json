@@ -1,0 +1,10 @@
+{
+  "cases": [
+    {
+      "name": "Catch the checkout failure by poll 6",
+      "trace": "trace.json",
+      "flag": "checkout_flow",
+      "rollback_by_poll": 6
+    }
+  ]
+}

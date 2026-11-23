@@ -18,7 +18,7 @@ type sample struct {
 }
 type fakeQuery map[string]sample
 
-func (q fakeQuery) Query(_ context.Context, s string) (float64, bool, error) {
+func (q fakeQuery) QueryAt(_ context.Context, s string, _ time.Time) (float64, bool, error) {
 	v := q[s]
 	return v.v, v.ok, v.err
 }

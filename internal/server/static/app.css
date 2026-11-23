@@ -28,3 +28,20 @@
 @media(max-width:700px){.lab-photo{height:80px}.page-head h1{font-size:2.5rem}}
 
 .content-grid + .summary-grid{margin-top:28px}
+
+.recovery-probes{padding:18px 22px;border-top:1px solid var(--line);background:var(--bg)}
+.probe-heading{display:flex;justify-content:space-between;align-items:baseline;gap:8px 18px;flex-wrap:wrap}
+.probe-heading h3{margin:0;font-size:1rem}.probe-heading strong,.probe-numbers{font: .78rem var(--mono)}
+.recovery-probes p{margin:.5rem 0 0;line-height:1.5}
+.probe-strip{display:flex;flex-wrap:wrap;gap:4px;list-style:none;padding:0;margin:12px 0}
+.probe-strip li{width:24px;text-align:center;font:bold 15px/24px var(--mono);border:1px solid currentColor}
+.probe-strip .pass{color:var(--green)}.probe-strip .fail{color:var(--red)}
+.sr-probe{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+
+.metrics > .metric:only-child{grid-column:1/-1}
+
+.incident-test { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+.incident-test h3 { margin: 0; }
+.incident-test p { margin: .5rem 0 .875rem; }
+#incident-download-status { font-size: .875rem; overflow-wrap: anywhere; }
+#incident-download-status:empty { margin: 0; }

@@ -22,7 +22,12 @@ func New(raw string) *Client {
 	return &Client{strings.TrimRight(raw, "/"), &http.Client{Timeout: 8 * time.Second}}
 }
 func (c *Client) Query(ctx context.Context, q string) (float64, bool, error) {
-	req, e := http.NewRequestWithContext(ctx, "GET", c.URL+"/api/v1/query?query="+url.QueryEscape(q), nil)
+	return c.QueryAt(ctx, q, time.Now())
+}
+
+func (c *Client) QueryAt(ctx context.Context, q string, at time.Time) (float64, bool, error) {
+	params := url.Values{"query": {q}, "time": {at.UTC().Format(time.RFC3339Nano)}}
+	req, e := http.NewRequestWithContext(ctx, "GET", c.URL+"/api/v1/query?"+params.Encode(), nil)
 	if e != nil {
 		return 0, false, e
 	}

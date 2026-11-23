@@ -1,0 +1,70 @@
+{
+  "single_fault": {
+    "failed_probes": 1,
+    "verified_variant_after_window": "candidate",
+    "rollback_events": 0
+  },
+  "rollback": {
+    "time": "2026-11-22T11:09:49.544436+05:30",
+    "kind": "ROLLBACK",
+    "flag": "price_response_v2",
+    "variant": "candidate",
+    "message": "contract_pass_fraction breached for 15s; flag disabled and verified",
+    "metric": "contract_pass_fraction",
+    "value": 0,
+    "threshold": 0.75,
+    "change": {
+      "feature_state_id": 3,
+      "before_enabled": true,
+      "after_enabled": false,
+      "default_before_enabled": true,
+      "default_after_enabled": false
+    },
+    "evidence": {
+      "control": {
+        "variant": "control",
+        "sample_query": "count_over_time(probe_success{job=\"price_contract\",variant=\"control\"}[30s]) and (up{job=\"price_contract\",variant=\"control\"} == 1)",
+        "samples": 6,
+        "minimum_samples": 4,
+        "ready": true
+      },
+      "mode": "enforce",
+      "evaluated_at": "2026-11-22T11:09:49.544436+05:30",
+      "action_finished_at": "2026-11-22T11:10:04.672491+05:30",
+      "action": "disable_flag",
+      "poll_seconds": 5,
+      "sample_query": "count_over_time(probe_success{job=\"price_contract\",variant=\"candidate\"}[30s]) and (up{job=\"price_contract\",variant=\"candidate\"} == 1)",
+      "samples": 6,
+      "minimum_samples": 4,
+      "rules": [
+        {
+          "control_query": "avg_over_time(probe_success{job=\"price_contract\",variant=\"control\"}[30s]) and (up{job=\"price_contract\",variant=\"control\"} == 1)",
+          "control_value": 1,
+          "diagnosis": "TREATMENT_ONLY_BREACH",
+          "metric": "contract_pass_fraction",
+          "query": "avg_over_time(probe_success{job=\"price_contract\",variant=\"candidate\"}[30s]) and (up{job=\"price_contract\",variant=\"candidate\"} == 1)",
+          "threshold": 0.75,
+          "comparison": "lt",
+          "for_seconds": 15,
+          "value": 0,
+          "breach_started_at": "2026-11-22T11:09:29.544962+05:30",
+          "remaining_seconds": 0
+        }
+      ]
+    }
+  },
+  "http_status": {
+    "candidate": 200.0,
+    "control": 200.0
+  },
+  "probe_success": {
+    "candidate": 0.0,
+    "control": 1.0
+  },
+  "resolved_variant": "control",
+  "served_price": {
+    "sku": "coffee",
+    "amount_cents": 1299,
+    "currency": "USD"
+  }
+}

@@ -15,7 +15,7 @@ import (
 )
 
 type Querier interface {
-	Query(context.Context, string) (float64, bool, error)
+	QueryAt(context.Context, string, time.Time) (float64, bool, error)
 }
 type Flags interface {
 	Find(context.Context, string) (flagsmith.FeatureState, error)
@@ -39,24 +39,26 @@ type RuleState struct {
 	Error        string     `json:"error,omitempty"`
 }
 type State struct {
-	Control        *ControlState `json:"control,omitempty"`
-	Mode           string        `json:"mode"`
-	Name           string        `json:"name"`
-	Flag           string        `json:"flag"`
-	Variant        string        `json:"variant"`
-	Action         string        `json:"action"`
-	Status         string        `json:"status"`
-	Message        string        `json:"message"`
-	Rules          []RuleState   `json:"rules"`
-	Samples        *float64      `json:"samples"`
-	MinimumSamples float64       `json:"minimum_samples"`
-	UpdatedAt      time.Time     `json:"updated_at"`
-	FlagEnabled    *bool         `json:"flag_enabled"`
-	PrometheusOK   bool          `json:"prometheus_ok"`
-	FlagsmithOK    bool          `json:"flagsmith_ok"`
-	ResumeAt       *time.Time    `json:"resume_at,omitempty"`
+	Recovery       *RecoveryCheck `json:"recovery_probe,omitempty"`
+	Control        *ControlState  `json:"control,omitempty"`
+	Mode           string         `json:"mode"`
+	Name           string         `json:"name"`
+	Flag           string         `json:"flag"`
+	Variant        string         `json:"variant"`
+	Action         string         `json:"action"`
+	Status         string         `json:"status"`
+	Message        string         `json:"message"`
+	Rules          []RuleState    `json:"rules"`
+	Samples        *float64       `json:"samples"`
+	MinimumSamples float64        `json:"minimum_samples"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+	FlagEnabled    *bool          `json:"flag_enabled"`
+	PrometheusOK   bool           `json:"prometheus_ok"`
+	FlagsmithOK    bool           `json:"flagsmith_ok"`
+	ResumeAt       *time.Time     `json:"resume_at,omitempty"`
 }
 type Event struct {
+	Recovery  *RecoveryCheck    `json:"recovery_probe,omitempty"`
 	Time      time.Time         `json:"time"`
 	Kind      string            `json:"kind"`
 	Flag      string            `json:"flag"`
@@ -72,6 +74,7 @@ type Event struct {
 // Evidence freezes the decision inputs before later polls or resets change them.
 // It deliberately excludes API credentials, webhook URLs, and connection config.
 type Evidence struct {
+	Observations     []Observation `json:"observations,omitempty"`
 	Control          *ControlState `json:"control,omitempty"`
 	Mode             string        `json:"mode"`
 	EvaluatedAt      time.Time     `json:"evaluated_at"`
@@ -99,19 +102,20 @@ type diskState struct {
 	ResumeAt    map[string]time.Time `json:"resume_at,omitempty"`
 }
 type Engine struct {
-	mu          sync.RWMutex
-	op          sync.Mutex // Serialize a complete evaluation with manual reset.
-	cfg         config.Config
-	query       Querier
-	flags       Flags
-	notify      Notify
-	states      []State
-	events      []Event
-	latched     map[string]bool
-	unconfirmed map[string]string
-	lastPoll    time.Time
-	resumeAt    map[string]time.Time
-	storageOK   bool
+	observations map[string][]Observation
+	mu           sync.RWMutex
+	op           sync.Mutex // Serialize a complete evaluation with manual reset.
+	cfg          config.Config
+	query        Querier
+	flags        Flags
+	notify       Notify
+	states       []State
+	events       []Event
+	latched      map[string]bool
+	unconfirmed  map[string]string
+	lastPoll     time.Time
+	resumeAt     map[string]time.Time
+	storageOK    bool
 }
 
 func New(c config.Config, q Querier, f Flags, n Notify) (*Engine, error) {
@@ -121,7 +125,7 @@ func New(c config.Config, q Querier, f Flags, n Notify) (*Engine, error) {
 	if c.Mode != "enforce" && c.Mode != "shadow" {
 		return nil, fmt.Errorf("invalid protection mode")
 	}
-	e := &Engine{cfg: c, query: q, flags: f, notify: n, latched: map[string]bool{}, unconfirmed: map[string]string{}, events: []Event{}, resumeAt: map[string]time.Time{}, storageOK: true}
+	e := &Engine{observations: make(map[string][]Observation), cfg: c, query: q, flags: f, notify: n, latched: map[string]bool{}, unconfirmed: map[string]string{}, events: []Event{}, resumeAt: map[string]time.Time{}, storageOK: true}
 	if c.StateFile != "" {
 		raw, err := os.ReadFile(c.StateFile)
 		if err == nil {
@@ -152,6 +156,9 @@ func New(c config.Config, q Querier, f Flags, n Notify) (*Engine, error) {
 		if e.latched[g.Flag] {
 			s.Status = "ROLLED_BACK"
 			s.Message = "Rollback lock restored from disk"
+			if g.RecoveryProbe != nil && c.Mode == "enforce" {
+				s.Recovery = pendingRecovery(*g.RecoveryProbe, "Waiting for a fresh off-state reading from Flagsmith.")
+			}
 			if reason := e.unconfirmed[g.Flag]; reason != "" {
 				s.Status = "ACTION_REQUIRED"
 				s.Message = reason
@@ -209,7 +216,7 @@ func (e *Engine) Evaluate(ctx context.Context, now time.Time) {
 		}
 		samplesReady := true
 		if g.SampleQuery != "" {
-			v, ok, err := e.query.Query(ctx, g.SampleQuery)
+			v, ok, err := e.query.QueryAt(ctx, g.SampleQuery, now)
 			s.Samples = nil
 			if err != nil {
 				s.PrometheusOK = false
@@ -224,7 +231,7 @@ func (e *Engine) Evaluate(ctx context.Context, now time.Time) {
 		// Control data is diagnostic only: unavailable control cannot suppress an absolute safety rule.
 		s.Control = nil
 		if g.Control != nil {
-			v, ok, err := e.query.Query(ctx, g.Control.SampleQuery)
+			v, ok, err := e.query.QueryAt(ctx, g.Control.SampleQuery, now)
 			s.Control = &ControlState{Variant: g.Control.Variant, SampleQuery: g.Control.SampleQuery, MinimumSamples: g.Control.MinimumSamples, Ready: ok && err == nil && v >= g.Control.MinimumSamples}
 			if ok && err == nil {
 				s.Control.Samples = &v
@@ -236,14 +243,14 @@ func (e *Engine) Evaluate(ctx context.Context, now time.Time) {
 		trigger := -1
 		for j, r := range g.Rules {
 			rs := &s.Rules[j]
-			v, ok, err := e.query.Query(ctx, r.Query)
+			v, ok, err := e.query.QueryAt(ctx, r.Query, now)
 			rs.Value = nil
 			rs.Error = ""
 			rs.ControlQuery = r.ControlQuery
 			rs.ControlValue = nil
 			rs.Diagnosis = ""
 			if g.Control != nil {
-				cv, cok, cerr := e.query.Query(ctx, r.ControlQuery)
+				cv, cok, cerr := e.query.QueryAt(ctx, r.ControlQuery, now)
 				if cok && cerr == nil {
 					rs.ControlValue = &cv
 				}
@@ -295,6 +302,8 @@ func (e *Engine) Evaluate(ctx context.Context, now time.Time) {
 				rs.Remaining = r.For.Seconds()
 			}
 		}
+		eligible := fe == nil && fs.Enabled && !e.latched[g.Flag] && (s.ResumeAt == nil || !now.Before(*s.ResumeAt)) && s.PrometheusOK && samplesReady && !missing
+		e.observe(g, s, eligible, anyBreach, gap)
 		switch {
 		case e.latched[g.Flag]:
 			s.Status = "ROLLED_BACK"
@@ -344,7 +353,7 @@ func (e *Engine) Evaluate(ctx context.Context, now time.Time) {
 					r := g.Rules[trigger]
 					v := *s.Rules[trigger].Value
 					frozen := cloneStates([]State{s})[0]
-					e.addEvent(Event{Time: now, Kind: "WOULD_ROLLBACK", Flag: g.Flag, Variant: g.Variant, Message: s.Message, Metric: r.Metric, Value: &v, Threshold: &r.Threshold, Evidence: &Evidence{Control: frozen.Control, Mode: "shadow", EvaluatedAt: now, Action: g.Action, ExperimentID: g.ExperimentID, PollSeconds: e.cfg.PollInterval.Seconds(), SampleQuery: g.SampleQuery, Samples: frozen.Samples, MinimumSamples: g.MinimumSamples, Rules: frozen.Rules}})
+					e.addEvent(Event{Time: now, Kind: "WOULD_ROLLBACK", Flag: g.Flag, Variant: g.Variant, Message: s.Message, Metric: r.Metric, Value: &v, Threshold: &r.Threshold, Evidence: &Evidence{Observations: e.decisionObservations(g.Flag), Control: frozen.Control, Mode: "shadow", EvaluatedAt: now, Action: g.Action, ExperimentID: g.ExperimentID, PollSeconds: e.cfg.PollInterval.Seconds(), SampleQuery: g.SampleQuery, Samples: frozen.Samples, MinimumSamples: g.MinimumSamples, Rules: frozen.Rules}})
 				}
 				break
 			}
@@ -360,7 +369,7 @@ func (e *Engine) Evaluate(ctx context.Context, now time.Time) {
 			}
 			change, err := e.flags.SetEnabled(ctx, g.Flag, false)
 			frozen := cloneStates([]State{s})[0]
-			evidence := &Evidence{Control: frozen.Control, Mode: "enforce", EvaluatedAt: now, ActionFinishedAt: time.Now(), Action: g.Action, ExperimentID: g.ExperimentID, PollSeconds: e.cfg.PollInterval.Seconds(), SampleQuery: g.SampleQuery, Samples: frozen.Samples, MinimumSamples: g.MinimumSamples, Rules: frozen.Rules}
+			evidence := &Evidence{Observations: e.decisionObservations(g.Flag), Control: frozen.Control, Mode: "enforce", EvaluatedAt: now, ActionFinishedAt: time.Now(), Action: g.Action, ExperimentID: g.ExperimentID, PollSeconds: e.cfg.PollInterval.Seconds(), SampleQuery: g.SampleQuery, Samples: frozen.Samples, MinimumSamples: g.MinimumSamples, Rules: frozen.Rules}
 			r := g.Rules[trigger]
 			v := *s.Rules[trigger].Value
 			if err != nil {
@@ -398,6 +407,21 @@ func (e *Engine) Evaluate(ctx context.Context, now time.Time) {
 			s.ResumeAt = nil
 			delete(e.resumeAt, g.Flag)
 		}
+		if p := g.RecoveryProbe; p != nil && e.cfg.Mode == "enforce" {
+			previous := s.Recovery
+			if gap {
+				previous = nil
+			}
+			s.Recovery = nil
+			if s.Status == "ROLLED_BACK" || s.Status == "ACTION_REQUIRED" || s.Status == "PAUSED" {
+				// Start the window at a confirmed off read, never before the rollback write.
+				if fe != nil || fs.Enabled {
+					s.Recovery = pendingRecovery(*p, "Confirm the flag is off in Flagsmith before testing recovery.")
+				} else {
+					s.Recovery = e.checkRecovery(ctx, *p, previous, now)
+				}
+			}
+		}
 		if oldStatus != s.Status && s.Status != "ROLLED_BACK" && s.Status != "SHADOW_TRIGGERED" {
 			e.addEvent(Event{Time: now, Kind: s.Status, Flag: g.Flag, Message: s.Message})
 		}
@@ -433,6 +457,35 @@ func (e *Engine) Reset(ctx context.Context, flag string) error {
 	if !e.latched[flag] && old.Status != "PAUSED" {
 		return fmt.Errorf("reset is only available for a disabled or rollback-locked flag")
 	}
+	var proof *RecoveryCheck
+	if p := e.cfg.Guardrails[index].RecoveryProbe; p != nil {
+		fs, err := e.flags.Find(ctx, flag)
+		if err != nil || fs.Enabled {
+			proof = pendingRecovery(*p, "Confirm the flag is off in Flagsmith before testing recovery.")
+		} else {
+			previous := old.Recovery
+			now := time.Now()
+			if now.Sub(e.lastPoll) > 3*e.cfg.PollInterval {
+				previous = nil
+			}
+			proof = e.checkRecovery(ctx, *p, previous, now)
+			// The transport may have consumed the remaining freshness margin.
+			if proof.Status == "READY" && time.Since(proof.Recent[len(proof.Recent)-1].At) > p.MaxGap {
+				proof.Status = "NO_DATA"
+				proof.Detail = "The latest probe expired while checking recovery. Wait for a fresh scrape."
+			}
+		}
+		e.mu.Lock()
+		e.states[index].Recovery = proof
+		e.mu.Unlock()
+		if proof.Status != "READY" {
+			e.addEvent(Event{Time: time.Now(), Kind: "RECOVERY_HELD", Flag: flag, Message: proof.Detail, Recovery: proof})
+			if err := e.persist(); err != nil {
+				return fmt.Errorf("recovery held: %s (could not save the attempted reset)", proof.Detail)
+			}
+			return fmt.Errorf("recovery held: %s", proof.Detail)
+		}
+	}
 	// Persist an uncertainty lock before re-enabling, including PAUSED flags.
 	// A timeout or a crash during multi-resource recovery must never re-arm silently.
 	previousLock, previousReason := e.latched[flag], e.unconfirmed[flag]
@@ -457,7 +510,7 @@ func (e *Engine) Reset(ctx context.Context, flag string) error {
 	delete(e.unconfirmed, flag)
 	resume := time.Now().Add(e.cfg.Warmup())
 	e.resumeAt[flag] = resume
-	e.addEvent(Event{Time: time.Now(), Kind: "RESET", Flag: flag, Message: fmt.Sprintf("Flag re-enabled and verified; %s metric warm-up", e.cfg.Warmup()), Change: &change})
+	e.addEvent(Event{Time: time.Now(), Kind: "RESET", Flag: flag, Recovery: proof, Message: fmt.Sprintf("Flag re-enabled and verified; %s metric warm-up", e.cfg.Warmup()), Change: &change})
 	if err = e.persist(); err != nil {
 		e.latched[flag] = true
 		e.unconfirmed[flag] = "Flag enabled but recovery state could not be saved; inspect state storage."
@@ -469,6 +522,7 @@ func (e *Engine) Reset(ctx context.Context, flag string) error {
 	}
 	e.mu.Lock()
 	s := &e.states[index]
+	s.Recovery = nil
 	clearTimers(s)
 	s.Status = "WARMING_UP"
 	s.Message = "Reset verified; waiting for fresh traffic"

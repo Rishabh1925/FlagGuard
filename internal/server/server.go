@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"embed"
 	"encoding/json"
+	"flagguard/internal/backtest"
 	"flagguard/internal/engine"
 	"io"
 	"mime"
@@ -17,6 +18,7 @@ import (
 var assets embed.FS
 
 type Server struct {
+	History            backtest.History
 	Engine             *engine.Engine
 	DemoURL, DemoToken string
 	HTTP               *http.Client
@@ -79,6 +81,7 @@ func (s *Server) Handler() http.Handler {
 		write(w, 200, map[string]any{"guardrails": states, "time": time.Now(), "demo_enabled": s.DemoURL != "", "storage_ok": s.Engine.PersistenceHealthy()})
 	})
 	mux.HandleFunc("GET /api/events", func(w http.ResponseWriter, r *http.Request) { _, events := s.Engine.Snapshot(); write(w, 200, events) })
+	mux.HandleFunc("GET /api/incident-test", s.incidentExport)
 	mux.HandleFunc("GET /api/report", func(w http.ResponseWriter, r *http.Request) {
 		states, events := s.Engine.Snapshot()
 		w.Header().Set("Content-Disposition", `attachment; filename="flagguard-incident-report.json"`)

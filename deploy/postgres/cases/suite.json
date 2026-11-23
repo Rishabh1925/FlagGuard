@@ -1,0 +1,6 @@
+{
+  "cases": [
+    {"name":"Indexed catalog lookup","trace":"indexed.json","expect":"catalog_lookup_v2=none"},
+    {"name":"Catalog lookup loses its index","trace":"scan.json","expect":"catalog_lookup_v2=shared_blocks_per_lookup"}
+  ]
+}

@@ -3,12 +3,16 @@ package preflight
 
 import (
 	"context"
+	"time"
+
 	"flagguard/internal/config"
 	"flagguard/internal/flagsmith"
+	"flagguard/internal/prometheus"
+	"fmt"
 )
 
 type Querier interface {
-	Query(context.Context, string) (float64, bool, error)
+	QueryAt(context.Context, string, time.Time) (float64, bool, error)
 }
 
 // Only reads are exposed to the preflight checker.
@@ -17,11 +21,12 @@ type Reader interface {
 }
 
 type Check struct {
-	Flag   string   `json:"flag"`
-	Name   string   `json:"name"`
-	OK     bool     `json:"ok"`
-	Detail string   `json:"detail"`
-	Value  *float64 `json:"value,omitempty"`
+	Flag     string   `json:"flag"`
+	Name     string   `json:"name"`
+	OK       bool     `json:"ok"`
+	Detail   string   `json:"detail"`
+	Advisory bool     `json:"advisory,omitempty"`
+	Value    *float64 `json:"value,omitempty"`
 }
 
 type Report struct {
@@ -32,7 +37,12 @@ type Report struct {
 
 func Run(ctx context.Context, c config.Config, q Querier, f Reader) Report {
 	r := Report{Ready: true, ReadOnly: true, Checks: []Check{}}
-	add := func(ch Check) { r.Checks = append(r.Checks, ch); r.Ready = r.Ready && ch.OK }
+	add := func(ch Check) {
+		r.Checks = append(r.Checks, ch)
+		if !ch.Advisory && !ch.OK {
+			r.Ready = false
+		}
+	}
 	for _, g := range c.Guardrails {
 		state, err := f.Find(ctx, g.Flag)
 		ch := Check{Flag: g.Flag, Name: "flagsmith", OK: err == nil && state.Enabled, Detail: "Flag resolved and enabled"}
@@ -42,36 +52,64 @@ func Run(ctx context.Context, c config.Config, q Querier, f Reader) Report {
 			ch.Detail = "Flag is disabled; inspect it before enabling protection"
 		}
 		add(ch)
-		if g.SampleQuery != "" {
-			v, ok, err := q.Query(ctx, g.SampleQuery)
-			ch := Check{Flag: g.Flag, Name: "sample_volume", OK: err == nil && ok && v >= g.MinimumSamples, Detail: "Enough observed traffic"}
-			if err != nil {
-				ch.Detail = err.Error()
-			} else if !ok {
-				ch.Detail = "No finite sample"
-			} else {
-				ch.Value = &v
-				if v < g.MinimumSamples {
-					ch.Detail = "Not enough traffic for the configured minimum"
+		at := time.Now()
+		if probe := g.RecoveryProbe; probe != nil {
+			ch := Check{Flag: g.Flag, Name: "recovery_probe", Advisory: true, Detail: "Raw probe sampling is unavailable"}
+			if reader, ok := q.(prometheus.ProbeReader); ok {
+				samples, err := reader.ProbeWindow(ctx, probe.Selector(), probe.Window, at)
+				switch {
+				case err != nil:
+					ch.Detail = err.Error()
+				case len(samples) == 0:
+					ch.Detail = "No raw samples for the disabled-candidate probe"
+				case at.Sub(samples[len(samples)-1].At) > probe.MaxGap:
+					ch.Detail = "Latest candidate probe is stale"
+				default:
+					ch.OK = true
+					ch.Detail = fmt.Sprintf("Read %d binary candidate probes. Recovery eligibility is evaluated while the flag is off.", len(samples))
 				}
 			}
 			add(ch)
 		}
-		for _, rule := range g.Rules {
-			v, ok, err := q.Query(ctx, rule.Query)
-			ch := Check{Flag: g.Flag, Name: rule.Metric, OK: err == nil && ok, Detail: "Query returned one finite sample within threshold"}
-			if err != nil {
+		reading := func(name, query string, advisory bool) Check {
+			v, present, err := q.QueryAt(ctx, query, at)
+			ch := Check{Flag: g.Flag, Name: name, Advisory: advisory}
+			switch {
+			case err != nil:
 				ch.Detail = err.Error()
-			} else if !ok {
+			case !present:
 				ch.Detail = "No finite sample"
-			} else {
+			default:
+				ch.OK = true
 				ch.Value = &v
-				if (rule.Comparison == "gt" && v > rule.Threshold) || (rule.Comparison == "lt" && v < rule.Threshold) {
-					ch.OK = false
-					ch.Detail = "Threshold already breached; inspect before arming"
-				}
+				ch.Detail = "Query returned one finite sample"
+			}
+			return ch
+		}
+		volume := func(name, query string, minimum float64, advisory bool) {
+			ch := reading(name, query, advisory)
+			if ch.OK && *ch.Value < minimum {
+				ch.OK = false
+				ch.Detail = "Not enough traffic for the configured minimum"
 			}
 			add(ch)
+		}
+		if g.SampleQuery != "" {
+			volume("sample_volume", g.SampleQuery, g.MinimumSamples, false)
+		}
+		if g.Control != nil {
+			volume("control_sample_volume", g.Control.SampleQuery, g.Control.MinimumSamples, true)
+		}
+		for _, rule := range g.Rules {
+			ch := reading(rule.Metric, rule.Query, false)
+			if ch.OK && ((rule.Comparison == "gt" && *ch.Value > rule.Threshold) || (rule.Comparison == "lt" && *ch.Value < rule.Threshold)) {
+				ch.OK = false
+				ch.Detail = "Threshold already breached; inspect before arming"
+			}
+			add(ch)
+			if g.Control != nil {
+				add(reading("control_"+rule.Metric, rule.ControlQuery, true))
+			}
 		}
 	}
 	return r

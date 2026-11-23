@@ -1,0 +1,53 @@
+{
+  "flagsmith": {
+    "admin_token": "",
+    "api_url": "http://flagsmith.invalid/api/v1",
+    "environment_key": ""
+  },
+  "guardrails": [
+    {
+      "action": "disable_flag",
+      "control": {
+        "minimum_samples": 20,
+        "sample_query": "sum(increase(demo_http_requests_total{variant=\"control\"}[30s])) and on() (max(up{job=\"demo-app\"}) == 1)",
+        "variant": "control"
+      },
+      "experiment_id": 1,
+      "flag": "checkout_flow",
+      "minimum_samples": 20,
+      "name": "checkout_flow",
+      "recovery_probe": null,
+      "rules": [
+        {
+          "comparison": "gt",
+          "control_query": "(sum(rate(demo_http_requests_total{variant=\"control\",status=~\"5..\"}[30s])) / sum(rate(demo_http_requests_total{variant=\"control\"}[30s]))) and on() (max(up{job=\"demo-app\"}) == 1)",
+          "for": "15s",
+          "metric": "error_rate",
+          "query": "(sum(rate(demo_http_requests_total{variant=\"variant_b\",status=~\"5..\"}[30s])) / sum(rate(demo_http_requests_total{variant=\"variant_b\"}[30s]))) and on() (max(up{job=\"demo-app\"}) == 1)",
+          "threshold": 0.05
+        },
+        {
+          "comparison": "gt",
+          "control_query": "(histogram_quantile(0.99, sum by (le) (rate(demo_http_request_duration_seconds_bucket{variant=\"control\"}[30s]))) * 1000) and on() (max(up{job=\"demo-app\"}) == 1)",
+          "for": "15s",
+          "metric": "p99_latency_ms",
+          "query": "(histogram_quantile(0.99, sum by (le) (rate(demo_http_request_duration_seconds_bucket{variant=\"variant_b\"}[30s]))) * 1000) and on() (max(up{job=\"demo-app\"}) == 1)",
+          "threshold": 500
+        }
+      ],
+      "sample_query": "sum(increase(demo_http_requests_total{variant=\"variant_b\"}[30s])) and on() (max(up{job=\"demo-app\"}) == 1)",
+      "variant": "variant_b"
+    }
+  ],
+  "mode": "shadow",
+  "notifier": {
+    "format": "",
+    "webhook_url": ""
+  },
+  "poll_interval": "5s",
+  "prometheus": {
+    "url": "http://prometheus.invalid"
+  },
+  "recovery_warmup": "0s",
+  "state_file": ""
+}

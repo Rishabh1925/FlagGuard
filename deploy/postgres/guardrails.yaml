@@ -1,0 +1,25 @@
+mode: shadow
+poll_interval: 1s
+state_file: "${FLAGGUARD_STATE_FILE}"
+flagsmith:
+  api_url: "${FLAGSMITH_API_URL}"
+  admin_token: "${FLAGSMITH_ADMIN_TOKEN}"
+  environment_key: "${FLAGSMITH_ENV_KEY}"
+prometheus:
+  url: "${PROMETHEUS_URL}"
+guardrails:
+  - name: Catalog lookup buffer budget
+    flag: catalog_lookup_v2
+    variant: candidate
+    action: disable_flag
+    control:
+      variant: control
+      minimum_samples: 1
+      sample_query: 'count(flagguard_postgres_shared_blocks{job="flagguard_postgres",variant="control"} and on(job,instance) (up{job="flagguard_postgres"} == 1))'
+    rules:
+      - metric: shared_blocks_per_lookup
+        query: 'flagguard_postgres_shared_blocks{job="flagguard_postgres",variant="candidate"} and on(job,instance) (up{job="flagguard_postgres"} == 1)'
+        control_query: 'flagguard_postgres_shared_blocks{job="flagguard_postgres",variant="control"} and on(job,instance) (up{job="flagguard_postgres"} == 1)'
+        comparison: gt
+        threshold: 100
+        for: 2s

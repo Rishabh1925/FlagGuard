@@ -1,0 +1,65 @@
+{
+  "rollback": {
+    "time": "2026-11-22T04:10:58.10019+05:30",
+    "kind": "ROLLBACK",
+    "flag": "price_response_v2",
+    "variant": "candidate",
+    "message": "contract_pass_fraction breached for 15s; flag disabled and verified",
+    "metric": "contract_pass_fraction",
+    "value": 0.3333333333333333,
+    "threshold": 0.9,
+    "change": {
+      "feature_state_id": 3,
+      "before_enabled": true,
+      "after_enabled": false,
+      "default_before_enabled": true,
+      "default_after_enabled": false
+    },
+    "evidence": {
+      "control": {
+        "variant": "control",
+        "sample_query": "count_over_time(probe_success{job=\"price_contract\",variant=\"control\"}[30s]) and (up{job=\"price_contract\",variant=\"control\"} == 1)",
+        "samples": 6,
+        "minimum_samples": 4,
+        "ready": true
+      },
+      "mode": "enforce",
+      "evaluated_at": "2026-11-22T04:10:58.10019+05:30",
+      "action_finished_at": "2026-11-22T04:11:09.389103+05:30",
+      "action": "disable_flag",
+      "poll_seconds": 5,
+      "sample_query": "count_over_time(probe_success{job=\"price_contract\",variant=\"candidate\"}[30s]) and (up{job=\"price_contract\",variant=\"candidate\"} == 1)",
+      "samples": 6,
+      "minimum_samples": 4,
+      "rules": [
+        {
+          "control_query": "avg_over_time(probe_success{job=\"price_contract\",variant=\"control\"}[30s]) and (up{job=\"price_contract\",variant=\"control\"} == 1)",
+          "control_value": 1,
+          "diagnosis": "TREATMENT_ONLY_BREACH",
+          "metric": "contract_pass_fraction",
+          "query": "avg_over_time(probe_success{job=\"price_contract\",variant=\"candidate\"}[30s]) and (up{job=\"price_contract\",variant=\"candidate\"} == 1)",
+          "threshold": 0.9,
+          "comparison": "lt",
+          "for_seconds": 15,
+          "value": 0.3333333333333333,
+          "breach_started_at": "2026-11-22T04:10:43.100185+05:30",
+          "remaining_seconds": 0
+        }
+      ]
+    }
+  },
+  "http_status": {
+    "control": 200.0,
+    "candidate": 200.0
+  },
+  "probe_success": {
+    "control": 1.0,
+    "candidate": 0.0
+  },
+  "resolved_variant": "control",
+  "served_price": {
+    "sku": "coffee",
+    "amount_cents": 1299,
+    "currency": "USD"
+  }
+}

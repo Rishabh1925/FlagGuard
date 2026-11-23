@@ -1,0 +1,6 @@
+scrape_configs:
+  - job_name: flagguard_postgres
+    scrape_interval: 1s
+    scrape_timeout: 900ms
+    static_configs:
+      - targets: ['127.0.0.1:9328']
