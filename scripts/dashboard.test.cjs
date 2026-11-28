@@ -60,3 +60,7 @@ assert.match(run('incidentTestPanel(exportable)'), /Download regression test/);
 assert.match(run("incidentTestPanel({...exportable,kind:'WOULD_ROLLBACK'})"), /Download regression test/);
 assert.equal(run("incidentTestPanel({...exportable,kind:'ROLLBACK_UNCONFIRMED'})"), '');
 assert.equal(run("incidentTestPanel({...exportable,evidence:null})"), '');
+
+assert.match(run("incidentTestPanel({...exportable,change:{experiment_id:1}})"), /Hand off to the next shift/);
+assert.doesNotMatch(run("incidentTestPanel({...exportable,kind:'WOULD_ROLLBACK',change:{experiment_id:1}})"), /Hand off/);
+assert.doesNotMatch(run("incidentTestPanel({...exportable,flag:'<x>',change:{experiment_id:1}})"), /<x>/);

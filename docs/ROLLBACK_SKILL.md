@@ -1,57 +1,70 @@
-# Audit a Flagsmith experiment rollback
+# Audit a checkout rollback
 
-An operator sees a disabled flag the morning after a checkout incident. Is the experiment override also off? Would the saved readings still produce the rule and decision time in the incident report?
+A rollout has reopened since an incident. The [audit skill](../skills/audit-flagsmith-rollback/SKILL.md) checks whether the current settings match a verified reset in FlagGuard’s retained history. It also checks whether the captured policy still reproduces the original rule and decision instant.
 
-The [Agent Skill](../skills/audit-flagsmith-rollback/SKILL.md) answers both questions. The flags and experiment are identified by name and ID. The Flagsmith CLI reads current settings, then FlagGuard replays the captured policy. The agent returns a short receipt that can be pasted into the incident handoff. Neither tool changes the rollout during an audit.
+## Try a handoff
 
-## Try the skill
-
-Install Python 3 and the [official Flagsmith CLI v2](https://docs.flagsmith.com/integrating-with-flagsmith/CLI). From the root of this repository, build the current FlagGuard binary and put it on your PATH:
+Install Python 3, Go and the [official Flagsmith CLI v2](https://docs.flagsmith.com/integrating-with-flagsmith/CLI). In this repository, build FlagGuard and put it on PATH.
 
 ```sh
 go build -o bin/flagguard ./cmd/flagguard
 export PATH="$PWD/bin:$PATH"
-python3 scripts/rehearse-rollback-skill.py
+python3 scripts/rehearse-rollback-skill.py --scenario recovered
 ```
 
-Point your coding agent at `skills/audit-flagsmith-rollback/SKILL.md`, or install that whole directory using the agent's skill discovery convention. For a short demo, use this prompt:
+Point a coding agent at `skills/audit-flagsmith-rollback/SKILL.md`, or install the full skill directory using your agent’s skill discovery convention. Ask it to rehearse the recovered checkout and give the on-call handoff. The fixture simulates the current settings and later reset. The CLI and replay binary are real, and the six decision polls came from the Ubuntu checkout trial.
 
-> Use the audit-flagsmith-rollback skill. Rehearse the drift case and give me a two-sentence incident handoff. Identify which setting changed, whether the original decision reproduced, and what I should check next.
-
-The rehearsal runs locally with dummy credentials. It uses the actual CLI, a loopback API fixture representing current settings, the FlagGuard binary and the [recorded Ubuntu incident](evidence/ubuntu-checkout/decision.json). Six cases were exercised with Flagsmith CLI v2.0.0:
-
-| Scenario | Observation | Receipt |
-| --- | --- | --- |
-| Verified rollback | Both settings off, original error rule reproduced at the recorded instant | VERIFIED |
-| Rollout drift | Default off, experiment override on, original decision reproduced | DRIFT |
-| Wrong target | Experiment refers to a different feature ID | INCONCLUSIVE |
-| Changed policy | Both settings off, a longer error confirmation makes latency fire instead | REPLAY_MISMATCH |
-| Missing trace | Both settings off, historical decision unavailable | INCONCLUSIVE |
-| Missing trace with drift | Override on, historical decision unavailable | DRIFT |
-
-The drift handoff should call out the enabled experiment override and recommend checking for an intentional recovery. It cannot identify who changed the setting or prove what a customer saw. For a single example, append `--scenario drift` to the rehearsal command. The rehearsal exits successfully when each selected scenario yields its expected result.
+**What to expect.** Both settings are on. Replay confirms the original error decision. The settings differ from rollback (`DRIFT`) and match the later verified reset (`MATCHING_RESET`). A fresh application request is the next check for customer routing.
 
 ## Audit an operating environment
 
-Supply a trusted, extracted FlagGuard incident export with recorded polls. Choose the target and flag explicitly. Configure the CLI's read credentials for that specific host using its [static credential instructions](https://docs.flagsmith.com/integrating-with-flagsmith/CLI). Set `FLAGSMITH_ENVIRONMENT` to its client-side environment key. For the bundled local lab the API origin is `http://localhost:8000`. Use your own environment's HTTPS origin for a remote deployment.
+1. Open **Incident history**, select the confirmed rollback and download the regression test. For an experiment, new exports include a journal limited to the selected incident and later configuration changes for that flag. Download after recovery to include the reset.
+2. Choose the trusted API origin, flag and environment. Configure host-scoped management credentials for the Flagsmith CLI and set `FLAGSMITH_ENVIRONMENT` to the target client environment key. The ZIP cannot identify a trusted target for you.
+3. Give the agent the ZIP or run the helper directly. The two CLI calls are projected GET requests. Replay and journal comparison run locally.
 
 ```sh
-python3 skills/audit-flagsmith-rollback/scripts/audit.py "$CASE_DIR" \
+python3 skills/audit-flagsmith-rollback/scripts/audit.py incident.zip \
   --origin "$API_ORIGIN" --flag checkout_flow
 ```
 
-The audit exits 0 for a verified rollback, 1 for drift or a different replay decision, and 2 when it cannot verify the target or evidence. The two reads are sequential observations of current configuration. A later intentional reopening can produce drift even when the original rollback succeeded.
+An extracted case also works. For an older ZIP or a newer same-instance report, append `--report path/to/report.json`. **Export report** in the workspace downloads the report. The tool looks for the exact rollback, then checks subsequent changes for the same flag, feature state and experiment. A matching reset corroborates the settings observed during the two reads. The report cannot establish who approved a change or what happened outside the retained history.
 
-## Measured runs
+| Receipt | What to do |
+| --- | --- |
+| `VERIFIED` | Both settings were off when read and replay matched. Verify routing separately if needed. |
+| `DRIFT` + `MATCHING_RESET` | Current settings agree with a recorded recovery. Use its timestamp in the handoff. |
+| `DRIFT` + `RESET_DIFFERS` or `NO_RETAINED_RESET` | Inspect the change record. A partial reopening can leave the default and override in different states. |
+| `LATER_ROLLBACK` or `UNCONFIRMED_CHANGE` | Inspect the newer incident or unresolved change before attributing current state to a reset. |
+| `INCIDENT_NOT_IDENTIFIED` or `REPORT_UNAVAILABLE` | Obtain the matching report. The current settings and replay findings are still available. |
+| `REPLAY_MISMATCH` | Inspect the policy and trace. Replay reached a different result. |
+| `INCONCLUSIVE` | Inspect the missing evidence or ambiguous target. If a setting is enabled, confirmed drift takes precedence over a missing trace. |
 
-On November 28, the official CLI read a running self-hosted Flagsmith instance after a synthetic checkout fault. FlagGuard observed the verified rollback after 40.1 seconds. All 20 follow-up checkouts succeeded on control. The audit returned **VERIFIED** with both settings off. After an intentional recovery, it returned **DRIFT** with both settings on. The same exported decision reproduced the p99 latency rule at its original instant in both audits.
+The audit exits 0 for verified rollback, 1 for drift or a replay mismatch, and 2 for an inconclusive audit. The rehearsal checks the expected exit status for each case and exits 0 when its assertions pass.
 
-In a separate Codex session, the agent loaded the skill, ran the drift rehearsal and correctly identified that only the experiment override was on. It recommended checking the recovery record and verifying routing with a fresh request. The CLI projected two GET responses and the helper returned a 40-token receipt. Measured with `o200k_base`, the skill itself was 417 tokens, including the trailing newline.
+## Run it on-device
 
-| Full Codex turn, reported by the client | Tokens |
-| --- | ---: |
-| Input across the turn | 145,527 |
-| Cached input, included above | 132,864 |
-| Output | 423 |
+On a Mac with macOS 27, the matching Swift toolchain and Apple’s on-device language model available, this optional runner loads the same skill. Its single tool calls the Python audit with arguments chosen by the operator. The model has no shell or write tool. The runner prints the receipt and renders the operational facts directly from its fields.
 
-The full turn included the coding agent’s instructions, tool definitions and source inspection. These figures describe one run. [Live receipts, agent handoff and usage record](evidence/rollback-audit.json)
+```sh
+swift scripts/on-device-handoff.swift --rehearse
+# For an operator-selected target
+swift scripts/on-device-handoff.swift incident.zip --origin "$API_ORIGIN" --flag checkout_flow
+```
+
+The portable Python audit and coding-agent skill also run on Linux.
+
+## A live check of the ZIP
+
+With the rebuilt controller and a self-hosted Flagsmith instance, a synthetic fault triggered the latency guardrail. Verification took 42.1 seconds. Twenty fresh requests succeeded on control. The first ZIP returned `VERIFIED` with no retained reset. After recovery, a fresh ZIP returned `DRIFT` and `MATCHING_RESET` with the verified reset timestamp. The same p99 decision reproduced in both. Two earlier runs hit local API timeouts, including one unconfirmed rollback that required inspection. [Live receipts](evidence/recovery-handoff.json)
+
+## What the runs cost in tokens
+
+| Measured session | Full input | Cached input included in total | Output |
+| --- | ---: | ---: | ---: |
+| Apple on-device model, one audit tool, recovered case | 841 | Unreported | 20 |
+| Codex CLI, prepared skill, recovered case | 315,434 | 297,088 | 852 |
+| Earlier Codex CLI, override-only drift case | 145,527 | 132,864 | 423 |
+
+These are separate runtimes and sessions. The second Codex run inspected the source, handled a sandbox retry and checked temporary files. Its total increased despite the shorter skill. The dedicated local runner exposes only the audit tool to the model. The host handles targeting, execution and the final receipt. [Recovered-case handoffs and client usage](evidence/recovery-handoff.json) · [Earlier live audit and agent session](evidence/rollback-audit.json)
+
+Run `python3 scripts/rehearse-rollback-skill.py` for all 14 cases. They cover rollback, reopened override, wrong target, changed policy, missing trace, drift with missing trace, matching recovery, unexplained reopening, differing reset settings, superseding rollback, unrelated report, unconfirmed change unreadable report and a trace with no eligible samples.

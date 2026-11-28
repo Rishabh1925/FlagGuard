@@ -16,9 +16,9 @@ import (
 
 var ErrNotReproduced = errors.New("the retained measurements did not reproduce the recorded rule at its decision poll")
 
-// IncidentArchive exports only the inputs which influenced the original decision.
+// IncidentArchive exports the decision inputs and subsequent retained changes to this flag.
 // The historical reader is the sole integration this function can access.
-func IncidentArchive(ctx context.Context, event engine.Event, history History) ([]byte, error) {
+func IncidentArchive(ctx context.Context, event engine.Event, history History, later []engine.Event) ([]byte, error) {
 	ev := event.Evidence
 	if (event.Kind != "ROLLBACK" && event.Kind != "WOULD_ROLLBACK") || ev == nil || ev.EvaluatedAt.IsZero() || event.Metric == "" {
 		return nil, fmt.Errorf("a confirmed or shadow rollback with decision evidence is required")
@@ -133,6 +133,26 @@ decision.json is the recorded decision. ` + source + ` Before export, FlagGuard
 reproduced the same first triggering rule at the same decision poll.  The suite checks the triggering rule and its poll.
 It makes no flag writes. Query text and metric labels are included.
 `
+	if event.Kind == "ROLLBACK" && event.Change != nil && event.Change.ExperimentID > 0 {
+		journal := []engine.Event{event}
+		for _, row := range later {
+			if row.Flag != event.Flag {
+				continue
+			}
+			switch row.Kind {
+			case "RESET", "ROLLBACK", "ROLLBACK_UNCONFIRMED", "RECOVERY_UNCONFIRMED":
+				journal = append(journal, engine.Event{Time: row.Time, Kind: row.Kind, Flag: row.Flag, Change: row.Change})
+			}
+		}
+		raw, err := json.Marshal(map[string]any{"schema_version": 1, "generated_at": time.Now().UTC(), "events": journal})
+		if err != nil {
+			return nil, err
+		}
+		if err := write("report.json", raw); err != nil {
+			return nil, err
+		}
+		readme += "\nThe rollback audit skill accepts this ZIP directly. report.json records this incident and subsequent retained configuration changes for its flag at export time. Download again after recovery or supply a newer same-instance report to the skill.\n"
+	}
 	if err = write("README.md", []byte(readme)); err != nil {
 		return nil, err
 	}

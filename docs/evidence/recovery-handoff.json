@@ -1,0 +1,70 @@
+{
+  "scenario": "Controlled recovery rehearsal. Simulated current settings and reset, actual Flagsmith CLI and saved Ubuntu decision polls.",
+  "receipt": {
+    "flag": "checkout_flow",
+    "experiment": 1,
+    "default_enabled": true,
+    "rollout_enabled": true,
+    "recorded_rule": "error_rate",
+    "history": "MATCHING_RESET",
+    "reset_time": "2026-11-23T20:22:00Z",
+    "same_decision": true,
+    "verdict": "DRIFT"
+  },
+  "on_device": {
+    "runtime": "Apple Foundation Models, SystemLanguageModel.default on macOS 27.2.1",
+    "command": "swift scripts/on-device-handoff.swift --rehearse",
+    "handoff": [
+      "checkout_flow: flag default on, experiment override on.",
+      "Both settings match the verified reset at 2026-11-23T20:22:00Z.",
+      "Replay reproduced error_rate at the original decision time.",
+      "Next check: make a fresh application request to verify which variant is served."
+    ],
+    "client_usage": {
+      "input_tokens": 841,
+      "output_tokens": 20
+    },
+    "rendering": "The model requested the fixed read-only tool. Operator-facing facts and next check were rendered directly from its JSON receipt."
+  },
+  "coding_agent": {
+    "runtime": "Codex CLI, ephemeral, skill provided in prompt",
+    "command": "python3 scripts/rehearse-rollback-skill.py --scenario recovered",
+    "handoff": "**On-call handoff.** The `recovered` rehearsal passed for `checkout_flow`, experiment 1. The audit returned `DRIFT` because the fixture’s default and experiment rollout are both enabled, while the recorded rollback disabled both. Replay of the saved Linux polls reproduced the `error_rate` rollback decision. The retained journal corroborates reopening with a `MATCHING_RESET` at `2026-11-23 20:22 UTC`.\n\nCustomer routing remains unverified. If routing confirmation is needed, the next check is an application request in the intended environment with a known experiment identity. No flag settings or source files were changed.",
+    "client_usage": {
+      "input_tokens": 315434,
+      "cached_input_tokens": 297088,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 852,
+      "reasoning_output_tokens": 45
+    }
+  },
+  "live_lab": {
+    "case": "Synthetic checkout on self-hosted Flagsmith",
+    "decision_time": "2026-11-28T14:48:17.031114+05:30",
+    "observed_rollback_seconds": 42.1,
+    "control_checkouts": 20,
+    "after_rollback": {
+      "flag": "checkout_flow",
+      "experiment": 1,
+      "default_enabled": false,
+      "rollout_enabled": false,
+      "recorded_rule": "p99_latency_ms",
+      "history": "NO_RETAINED_RESET",
+      "same_decision": true,
+      "verdict": "VERIFIED"
+    },
+    "after_operator_recovery": {
+      "flag": "checkout_flow",
+      "experiment": 1,
+      "default_enabled": true,
+      "rollout_enabled": true,
+      "recorded_rule": "p99_latency_ms",
+      "history": "MATCHING_RESET",
+      "reset_time": "2026-11-28T14:49:07.233194+05:30",
+      "same_decision": true,
+      "verdict": "DRIFT"
+    },
+    "scope": "New single-ZIP exports before and after operator reset, in one synthetic run on local self-hosted Flagsmith. Snapshot refreshed after recovery.",
+    "prior_attempts": "Two earlier attempts encountered local API timeouts. One returned ACTION_REQUIRED after an unconfirmed rollback. The successful rerun followed a local API restart."
+  }
+}

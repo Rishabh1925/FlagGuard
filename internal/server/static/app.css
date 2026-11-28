@@ -45,3 +45,7 @@
 .incident-test p { margin: .5rem 0 .875rem; }
 #incident-download-status { font-size: .875rem; overflow-wrap: anywhere; }
 #incident-download-status:empty { margin: 0; }
+
+.audit-handoff { border-left: 3px solid var(--line); margin: 1rem 0; padding: .25rem .85rem; }
+.audit-handoff h4 { margin: 0; }
+.audit-handoff code { display: block; overflow-wrap: anywhere; }

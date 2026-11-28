@@ -8,6 +8,10 @@ import re
 import subprocess
 import sys
 from urllib.parse import quote, urlsplit
+from zipfile import BadZipFile
+
+sys.dont_write_bytecode = True
+from incident import incident_directory, instant, recovery_history
 
 
 def run_json(args):
@@ -28,7 +32,7 @@ def positive_id(value):
     return type(value) is int and value > 0
 
 
-def audit(case, origin, environment, flag):
+def audit(case, origin, environment, flag, report=None):
     url = urlsplit(origin)
     if (not url.hostname or url.username is not None or url.password is not None
             or url.query or url.fragment or url.path not in ("", "/")
@@ -63,6 +67,8 @@ def audit(case, origin, environment, flag):
         raise ValueError("current objects could not be matched to the recorded experiment")
     receipt = {"flag": flag, "experiment": experiment, "default_enabled": state["enabled"],
                "rollout_enabled": rollout["enabled"], "recorded_rule": event["metric"]}
+    if report is not None:
+        receipt.update(recovery_history(report, event, receipt))
     drift = state["enabled"] or rollout["enabled"]
     try:
         replay = run_json(["flagguard", "-config", str(case / "policy.yaml"), "-replay",
@@ -70,9 +76,11 @@ def audit(case, origin, environment, flag):
         rows = [r for r in replay["guardrails"] if r["flag"] == flag and r["variant"] == event["variant"]]
         if len(rows) != 1:
             raise ValueError("flag or variant missing from replay")
+        if rows[0]["outcome"] == "insufficient_data":
+            raise ValueError("replay has no eligible polls")
         decision = rows[0].get("first_decision") or {}
         same = (rows[0]["outcome"] == "would_roll_back" and decision.get("metric") == event["metric"]
-                and decision.get("time") == event["time"]
+                and instant(decision["time"]) == instant(event["time"])
                 and (decision.get("evidence") or {}).get("experiment_id") == experiment)
     except (OSError, ValueError, TypeError, KeyError, AttributeError):
         return dict(receipt, same_decision=None, verdict="DRIFT" if drift else "INCONCLUSIVE",
@@ -86,10 +94,15 @@ if __name__ == "__main__":
     parser.add_argument("case", type=Path)
     parser.add_argument("--origin", required=True)
     parser.add_argument("--flag", required=True)
+    parser.add_argument("--report", type=Path, help="Correlate a saved report from this FlagGuard instance")
     args = parser.parse_args()
     try:
-        receipt = audit(args.case, args.origin, os.environ["FLAGSMITH_ENVIRONMENT"], args.flag)
-    except (OSError, ValueError, KeyError, TypeError, IndexError, AttributeError) as error:
+        with incident_directory(args.case) as case:
+            report = args.report
+            if report is None and (case / "report.json").is_file():
+                report = case / "report.json"
+            receipt = audit(case, args.origin, os.environ["FLAGSMITH_ENVIRONMENT"], args.flag, report)
+    except (OSError, ValueError, KeyError, TypeError, IndexError, AttributeError, BadZipFile, RuntimeError) as error:
         print(json.dumps({"verdict": "INCONCLUSIVE", "detail": str(error)}))
         sys.exit(2)
     print(json.dumps(receipt, separators=(",", ":")))

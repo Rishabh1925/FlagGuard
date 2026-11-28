@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"os"
 	"testing"
 	"time"
 
@@ -67,7 +68,7 @@ func TestExportReplaysActualPollTimes(t *testing.T) {
 	if !flag.disabled || e.Kind != "ROLLBACK" || e.Metric != "error_rate" {
 		t.Fatalf("unexpected live decision %+v", e)
 	}
-	archive, err := IncidentArchive(ctx, e, nil)
+	archive, err := IncidentArchive(ctx, e, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,5 +93,43 @@ func TestExportReplaysActualPollTimes(t *testing.T) {
 	proposed, err := Replay(ctx, cfg, trace)
 	if err != nil || proposed.Check("checkout_flow=p99_latency_ms") != nil || !proposed.Guardrails[0].Decision.Time.Equal(e.Time) {
 		t.Fatalf("one-minute policy %+v %v", proposed, err)
+	}
+}
+
+func TestIncidentArchiveScopesHandoffToSelectedFlag(t *testing.T) {
+	raw, err := os.ReadFile("../../docs/evidence/ubuntu-checkout/decision.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var incident engine.Event
+	if err := json.Unmarshal(raw, &incident); err != nil {
+		t.Fatal(err)
+	}
+	reset := engine.Event{Time: incident.Time.Add(time.Minute), Kind: "RESET", Flag: incident.Flag, Change: incident.Change}
+	other := reset
+	other.Flag = "other_flag"
+	archive, err := IncidentArchive(context.Background(), incident, nil, []engine.Event{other, reset})
+	if err != nil {
+		t.Fatal(err)
+	}
+	z, err := zip.NewReader(bytes.NewReader(archive), int64(len(archive)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	file, err := z.Open("report.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	var report struct {
+		Version int `json:"schema_version"`
+		Events  []engine.Event
+	}
+	if err := json.NewDecoder(file).Decode(&report); err != nil {
+		t.Fatal(err)
+	}
+	if report.Version != 1 || len(report.Events) != 2 || !report.Events[0].Time.Equal(incident.Time) ||
+		report.Events[1].Kind != "RESET" || report.Events[1].Flag != incident.Flag || report.Events[1].Change == nil {
+		t.Fatalf("wrong scoped recovery history: %+v", report)
 	}
 }

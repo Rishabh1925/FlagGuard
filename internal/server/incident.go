@@ -17,7 +17,7 @@ func (s *Server) incidentExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_, events := s.Engine.Snapshot()
-	for _, event := range events {
+	for i, event := range events {
 		if event.Flag != q.Get("flag") || !event.Time.Equal(at) || event.Kind != q.Get("kind") {
 			continue
 		}
@@ -30,7 +30,7 @@ func (s *Server) incidentExport(w http.ResponseWriter, r *http.Request) {
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 		defer cancel()
-		archive, err := backtest.IncidentArchive(ctx, event, s.History)
+		archive, err := backtest.IncidentArchive(ctx, event, s.History, events[i+1:])
 		if errors.Is(err, backtest.ErrNotReproduced) {
 			write(w, 409, map[string]string{"error": err.Error()})
 			return

@@ -46,6 +46,10 @@ function incidentTestPanel(event) {
     <h3>Keep this incident as a test</h3>
     <p>Check future policy changes against the readings that triggered this rollback. The test runs offline.</p>
     <button type="button" id="download-incident" class="button" ${incidentDownload.pending ? 'disabled' : ''}>Download regression test</button>
+    ${event.kind === 'ROLLBACK' && event.change?.experiment_id > 0 ? `<div class="audit-handoff"><h4>Hand off to the next shift</h4>
+      <p>Give this ZIP to the rollback audit skill. It includes the changes recorded for this flag through download time. An operator selects the environment for the live check.</p>
+      <code>Audit the attached rollback for ${esc(event.flag)}. Do the current settings match a later reset?</code>
+    </div>` : ''}
     <p id="incident-download-status" role="status">${current ? esc(incidentDownload.message) : ''}</p>
   </section>`;
 }
