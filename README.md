@@ -1,12 +1,15 @@
 # FlagGuard
 
-**Automatic rollback for self-hosted Flagsmith, with a replayable record of why it happened.**
+**Roll back a failing experiment in self-hosted Flagsmith. Keep the evidence so the next engineer can check what happened.**
 
 ![A tabletop railway turnout and its signal](docs/images/turnout.jpg)
 
 A checkout experiment starts timing out. The original checkout is still fast. FlagGuard watches both versions in Prometheus, waits for a sustained breach, then disables the environment flag and its experiment override. The on-call engineer gets the readings that triggered the switch and a test they can run against the next policy change.
 
-[Run the checkout lab](#run-the-checkout-lab) · [Replay six polls](#six-polls-from-a-checkout-incident) · [Audit a reopened rollout](#the-next-shift) · [Connect your service](docs/OPERATIONS.md#configure-an-existing-stack)
+| Try FlagGuard | What you can verify |
+| --- | --- |
+| **Track 3 · Self-hosted integration** | Break one checkout version, watch FlagGuard switch traffic back, then replay the decision. [Run the checkout lab](#run-the-checkout-lab) · [Inspect six recorded polls](#six-polls-from-a-checkout-incident) |
+| **Track 4 · Agent Skill** | Give an agent an incident ZIP. It uses the Flagsmith CLI to check which settings are on and whether a recorded recovery explains them. [Try the read-only audit](#the-next-shift) · [Open the skill](skills/audit-flagsmith-rollback/SKILL.md) |
 
 ## Six polls from a checkout incident
 
@@ -38,7 +41,7 @@ The first check asks whether checkout was protected by poll six. The second asks
 
 ## Run the checkout lab
 
-Install Docker with Compose, Python 3 and Make. The first run downloads images and migrates the Flagsmith database. The lab uses local ports 8000, 8081, 8085 and 9090.
+Install Docker with Compose, Python 3 and Make. The first run downloads images and migrates the Flagsmith database. The lab uses local ports 8000, 8081, 8085 and 9090. [Setup without Make](docs/FRESH_MACHINE.md#without-make)
 
 ```sh
 git clone https://github.com/Rishabh1925/FlagGuard.git
@@ -82,7 +85,7 @@ Give the [rollback audit skill](skills/audit-flagsmith-rollback/SKILL.md) the in
 | Override on, no matching reset | Check the change record before treating this as an expected recovery. |
 | Trace missing, override on | The override is enabled. Historical replay is unavailable. |
 
-**Try a handoff without credentials.** With Python 3, Go and the official Flagsmith CLI v2 installed, run:
+**Try a handoff without credentials.** From the repository root, use Python 3, Go and the official Flagsmith CLI v2.
 
 ```sh
 go build -o bin/flagguard ./cmd/flagguard
