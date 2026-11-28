@@ -22,7 +22,9 @@ def main():
     parser.add_argument("--scenario", choices=("verified", "drift", "wrong-target", "changed-policy",
                                                 "missing-trace", "drift-missing-trace", "recovered", "unexplained",
                                                 "different-settings", "superseded", "unrelated-report",
-                                                "unconfirmed", "invalid-report", "no-samples"),
+                                                "unconfirmed", "invalid-report", "no-samples",
+                                                "live-off", "live-default", "live-override", "live-reopened",
+                                                "live-wrong-feature", "live-missing-value"),
                         help="Run one scenario. By default, verify every scenario.")
     scenario = parser.parse_args().scenario
     with tempfile.TemporaryDirectory() as temp:
@@ -83,7 +85,37 @@ def main():
                         or receipt.get("same_decision") is not same_decision or receipt.get("history") != history):
                     raise RuntimeError(f"Expected {expected}, received {receipt}, GET count {len(calls)}")
                 print(result.stdout.strip())
+            # Execute a copied skill with only the real Flagsmith CLI on PATH.
+            standalone = Path(temp) / "standalone"
+            shutil.copytree(ROOT / "skills/audit-flagsmith-rollback", standalone)
+            cli_dir = standalone / "bin"
+            cli_dir.mkdir()
+            cli = shutil.which("flagsmith")
+            if not cli:
+                raise RuntimeError("Install the official Flagsmith CLI v2 on PATH")
+            (cli_dir / "flagsmith").symlink_to(cli)
+            def check_live(name, default, override, feature, expected, code):
+                if scenario and name != scenario:
+                    return
+                current.update(default=default, enabled=override, feature_id=feature)
+                calls.clear()
+                result = subprocess.run([sys.executable, "scripts/audit.py", "--experiment", "1", "--flag", FLAG,
+                                         "--origin", f"http://127.0.0.1:{port}"], cwd=standalone,
+                                        env={**env, "PATH": str(cli_dir)}, capture_output=True, text=True, timeout=45)
+                receipt = json.loads(result.stdout)
+                if result.returncode != code or len(calls) != 2 or receipt["verdict"] != expected:
+                    raise RuntimeError(f"{name}: {receipt}, exit {result.returncode}, GET count {len(calls)}")
+                if code != 2 and (receipt["default_enabled"] is not default or receipt["rollout_enabled"] is not override):
+                    raise RuntimeError(f"{name}: wrong settings in {receipt}")
+                print(result.stdout.strip())
             try:
+                check_live("live-off", False, False, 7, "BOTH_OFF", 0)
+                check_live("live-default", True, False, 7, "SETTING_ENABLED", 1)
+                check_live("live-override", False, True, 7, "SETTING_ENABLED", 1)
+                check_live("live-reopened", True, True, 7, "SETTING_ENABLED", 1)
+                check_live("live-wrong-feature", False, False, 8, "INCONCLUSIVE", 2)
+                check_live("live-missing-value", None, False, 7, "INCONCLUSIVE", 2)
+                current.update(default=False, enabled=False, feature_id=7)
                 check("verified", "VERIFIED", 0, True)
                 current["enabled"] = True
                 check("drift", "DRIFT", 1, True)

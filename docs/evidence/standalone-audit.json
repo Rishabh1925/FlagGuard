@@ -1,0 +1,21 @@
+{
+  "run_date": "2026-11-28",
+  "target": "Local self-hosted Flagsmith checkout lab, existing experiment 1",
+  "agent_runtime": "Apple on-device model via scripts/on-device-handoff.swift",
+  "command": "swift scripts/on-device-handoff.swift --origin http://127.0.0.1:8000 --flag checkout_flow --experiment 1",
+  "receipt": {
+    "flag": "checkout_flow",
+    "experiment": 1,
+    "default_enabled": false,
+    "rollout_enabled": false,
+    "verdict": "BOTH_OFF"
+  },
+  "tokens": {
+    "comparison_encoding": "o200k_base",
+    "two_unprojected_responses_compact_json": 485,
+    "compact_receipt": 28,
+    "full_agent_input_native": 840,
+    "full_agent_output_native": 22
+  },
+  "scope": "Two management reads. No FlagGuard incident, replay, write, or customer request. The output comparison counts the same two API resources serialized as compact JSON. Full agent usage is a separate measurement reported by the local runtime."
+}

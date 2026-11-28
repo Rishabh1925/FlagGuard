@@ -39,6 +39,25 @@ type FeatureState struct {
 	DefaultEnabled bool            `json:"-"`
 	Rollout        map[string]any  `json:"-"`
 }
+
+// A missing or null enabled field is not evidence that the flag is off.
+func (s *FeatureState) UnmarshalJSON(data []byte) error {
+	type plain FeatureState
+	var wire struct {
+		plain
+		Enabled *bool `json:"enabled"`
+	}
+	if err := json.Unmarshal(data, &wire); err != nil {
+		return err
+	}
+	if wire.Enabled == nil {
+		return fmt.Errorf("feature state is missing its enabled setting")
+	}
+	*s = FeatureState(wire.plain)
+	s.Enabled = *wire.Enabled
+	return nil
+}
+
 type Change struct {
 	ID            int   `json:"feature_state_id"`
 	Before        bool  `json:"before_enabled"`
@@ -188,6 +207,9 @@ func (c *Client) SetEnabled(ctx context.Context, flag string, enabled bool) (Cha
 	after, e := c.Find(ctx, flag)
 	if e != nil {
 		return change, fmt.Errorf("read-back verification: %w", e)
+	}
+	if after.ID != before.ID || after.Feature.ID != before.Feature.ID {
+		return change, fmt.Errorf("read-back resolved a different feature state")
 	}
 	if after.DefaultEnabled != enabled || (after.Rollout != nil && after.Rollout["enabled"] != enabled) {
 		return change, fmt.Errorf("Flagsmith did not apply the change; check change approvals")

@@ -9,7 +9,7 @@ A checkout experiment starts timing out. The original checkout is still fast. Fl
 | Try FlagGuard | What you can verify |
 | --- | --- |
 | **Track 3 · Self-hosted integration** | Break one checkout version, watch FlagGuard switch traffic back, then replay the decision. [Run the checkout lab](#run-the-checkout-lab) · [Inspect six recorded polls](#six-polls-from-a-checkout-incident) |
-| **Track 4 · Agent Skill** | Give an agent an incident ZIP. It uses the Flagsmith CLI to check which settings are on and whether a recorded recovery explains them. [Try the read-only audit](#the-next-shift) · [Open the skill](skills/audit-flagsmith-rollback/SKILL.md) |
+| **Track 4 · Agent Skill** | Check a flag and its experiment override with the Flagsmith CLI. Add an incident ZIP to check whether a recorded reset explains a reopened rollout. [Try the read-only audit](#the-next-shift) · [Open the skill](skills/audit-flagsmith-rollback/SKILL.md) |
 
 ## Six polls from a checkout incident
 
@@ -85,7 +85,17 @@ Give the [rollback audit skill](skills/audit-flagsmith-rollback/SKILL.md) the in
 | Override on, no matching reset | Check the change record before treating this as an expected recovery. |
 | Trace missing, override on | The override is enabled. Historical replay is unavailable. |
 
-**Try a handoff without credentials.** From the repository root, use Python 3, Go and the official Flagsmith CLI v2.
+Have an existing Flagsmith experiment? The skill can check its two live settings using Python and the official CLI alone. On the self-hosted checkout lab, the two API responses came to 485 tokens and the agent received a 28-token summary. [Live receipt](docs/evidence/standalone-audit.json) · [Run it without FlagGuard](docs/ROLLBACK_SKILL.md#check-an-experiment-without-a-flagguard-installation)
+
+**Try the skill without an account.** With Python 3 and the official Flagsmith CLI v2 on PATH, run this from the clone.
+
+```sh
+python3 scripts/rehearse-rollback-skill.py --scenario live-override
+```
+
+The fixture turns the experiment override on while the default is off. Look for `"default_enabled":false`, `"rollout_enabled":true` and `"verdict":"SETTING_ENABLED"` in the result.
+
+**Replay the recovery shown in the demo.** This also needs Go.
 
 ```sh
 go build -o bin/flagguard ./cmd/flagguard
@@ -93,7 +103,7 @@ export PATH="$PWD/bin:$PATH"
 python3 scripts/rehearse-rollback-skill.py --scenario recovered
 ```
 
-The rehearsal uses simulated current settings and real recorded Linux polls. An optional on-device runner completed the recovery handoff with **841 input tokens and 20 output tokens**. The full coding-agent run used substantially more. [Skill setup, all 14 scenarios and measured token usage](docs/ROLLBACK_SKILL.md)
+The rehearsal uses simulated current settings and real recorded Linux polls. An optional on-device runner completed the recovery handoff with **841 input tokens and 20 output tokens**. The full coding-agent run used substantially more. [Skill setup, all 20 scenarios and measured token usage](docs/ROLLBACK_SKILL.md)
 
 ## Two failures a status code misses
 

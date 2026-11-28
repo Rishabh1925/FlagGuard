@@ -140,3 +140,32 @@ func TestNumericFeatureReference(t *testing.T) {
 		t.Fatalf("numeric feature: %+v %v", state, err)
 	}
 }
+
+func TestReadBackRequiresExplicitSettingOnOriginalState(t *testing.T) {
+	for name, response := range map[string]string{
+		"missing setting":     `[{"id":1,"feature":7}]`,
+		"null setting":        `[{"id":1,"feature":7,"enabled":null}]`,
+		"replacement state":   `[{"id":2,"feature":7,"enabled":false}]`,
+		"replacement feature": `[{"id":1,"feature":8,"enabled":false}]`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			wrote := false
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch {
+				case r.Method == http.MethodPatch:
+					wrote = true
+					fmt.Fprint(w, "{}")
+				case wrote:
+					fmt.Fprint(w, response)
+				default:
+					fmt.Fprint(w, `[{"id":1,"feature":7,"enabled":true}]`)
+				}
+			}))
+			defer server.Close()
+			_, err := New(server.URL, "token", "env").SetEnabled(context.Background(), "checkout_flow", false)
+			if !wrote || err == nil {
+				t.Fatalf("expected an unverified read-back after the write; wrote=%v err=%v", wrote, err)
+			}
+		})
+	}
+}

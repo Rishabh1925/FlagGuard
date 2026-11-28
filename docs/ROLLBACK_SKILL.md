@@ -2,6 +2,20 @@
 
 A rollout has reopened since an incident. The [audit skill](../skills/audit-flagsmith-rollback/SKILL.md) checks whether the current settings match a verified reset in FlagGuard’s retained history. It also checks whether the captured policy still reproduces the original rule and decision instant.
 
+## Check an experiment without a FlagGuard installation
+
+Copy the entire `skills/audit-flagsmith-rollback` directory into your agent’s skills directory. This check needs Python 3 and the official Flagsmith CLI v2 on PATH. Use a CLI credential configured for your Flagsmith host, set `FLAGSMITH_ENVIRONMENT` to the target client environment key, and take the experiment ID from your own Flagsmith instance. From the copied skill directory run
+
+```sh
+python3 scripts/audit.py --origin "$API_ORIGIN" --flag "$FLAG" --experiment "$EXPERIMENT_ID"
+```
+
+The helper reads the environment default and the experiment override with two CLI GETs. It checks that the names and IDs resolve to the same feature. `BOTH_OFF` (exit 0) means both settings were off when read. `SETTING_ENABLED` (exit 1) tells you which setting to reconcile with the change record. `INCONCLUSIVE` (exit 2) means the target or its values could not be verified. To establish what a customer receives, make a fresh application request. To explain *when or why* a setting changed, use the incident workflow below.
+
+On November 28 we ran this check against the running self-hosted checkout experiment. The receipt was `{"flag":"checkout_flow","experiment":1,"default_enabled":false,"rollout_enabled":false,"verdict":"BOTH_OFF"}`. The two full API responses used 485 tokens as compact JSON. The receipt used 28 with the same tokenizer (o200k_base). The complete on-device agent turn used 840 input and 22 output tokens in the runtime’s own accounting. [Command and measured result](evidence/standalone-audit.json)
+
+To try the same workflow without credentials, run `python3 scripts/rehearse-rollback-skill.py --scenario live-override` from the repository with the official CLI v2 installed. The fixture supplies a disabled default and an enabled override. The rehearsal runs a copy of the skill with only the CLI on PATH and checks the two GETs and the resulting handoff.
+
 ## Try a handoff
 
 Install Python 3, Go and the [official Flagsmith CLI v2](https://docs.flagsmith.com/integrating-with-flagsmith/CLI). In this repository, build FlagGuard and put it on PATH.
@@ -67,4 +81,4 @@ With the rebuilt controller and a self-hosted Flagsmith instance, a synthetic fa
 
 These are separate runtimes and sessions. The second Codex run inspected the source, handled a sandbox retry and checked temporary files. Its total increased despite the shorter skill. The dedicated local runner exposes only the audit tool to the model. The host handles targeting, execution and the final receipt. [Recovered-case handoffs and client usage](evidence/recovery-handoff.json) · [Earlier live audit and agent session](evidence/rollback-audit.json)
 
-Run `python3 scripts/rehearse-rollback-skill.py` for all 14 cases. They cover rollback, reopened override, wrong target, changed policy, missing trace, drift with missing trace, matching recovery, unexplained reopening, differing reset settings, superseding rollback, unrelated report, unconfirmed change unreadable report and a trace with no eligible samples.
+Run `python3 scripts/rehearse-rollback-skill.py` for all 20 cases. Six run from a copied skill directory with only the Flagsmith CLI on PATH. They cover all four combinations of the two settings, a mismatched feature and a missing value. The 14 incident cases cover rollback, reopened override, wrong target, changed policy, missing trace, drift with missing trace, matching recovery, unexplained reopening, differing reset settings, superseding rollback, unrelated report, unconfirmed change, unreadable report and a trace with no eligible samples.

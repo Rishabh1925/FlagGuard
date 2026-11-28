@@ -48,7 +48,7 @@ struct RollbackAudit: Tool {
 func handoff() async throws -> Int32 {
     let args = Array(CommandLine.arguments.dropFirst())
     guard !args.isEmpty else {
-        throw AuditError(reason: "Use --rehearse or pass CASE --origin ORIGIN --flag FLAG [--report REPORT].")
+        throw AuditError(reason: "Use --rehearse, or pass CASE or --experiment ID with --origin ORIGIN --flag FLAG.")
     }
     let rehearsal = args == ["--rehearse"]
     let skill = "skills/audit-flagsmith-rollback"
@@ -80,6 +80,10 @@ func handoff() async throws -> Int32 {
     print(receipt)
     if fields?["verdict"] as? String == "INCONCLUSIVE" && fields?["flag"] == nil {
         print("Next check: confirm the target, credentials and selected export.")
+    } else if fields?["verdict"] as? String == "SETTING_ENABLED" {
+        print("Next check: compare the enabled setting with the operator change record.")
+    } else if fields?["verdict"] as? String == "BOTH_OFF" {
+        print("Next check: make a fresh application request to verify routing.")
     } else if fields?["same_decision"] as? Bool != true {
         print("Next check: inspect the decision, policy and trace before relying on replay.")
     } else if fields?["verdict"] as? String == "DRIFT" && fields?["history"] as? String != "MATCHING_RESET" {
