@@ -1,0 +1,49 @@
+{
+  "live_lab": {
+    "case": "Synthetic checkout on self-hosted Flagsmith",
+    "decision_time": "2026-11-28T11:59:54.839686+05:30",
+    "observed_rollback_seconds": 40.1,
+    "control_checkouts": 20,
+    "after_rollback": {
+      "flag": "checkout_flow",
+      "experiment": 1,
+      "default_enabled": false,
+      "rollout_enabled": false,
+      "recorded_rule": "p99_latency_ms",
+      "same_decision": true,
+      "verdict": "VERIFIED"
+    },
+    "after_operator_recovery": {
+      "flag": "checkout_flow",
+      "experiment": 1,
+      "default_enabled": true,
+      "rollout_enabled": true,
+      "recorded_rule": "p99_latency_ms",
+      "same_decision": true,
+      "verdict": "DRIFT"
+    }
+  },
+  "agent_rehearsal": {
+    "source": "Codex CLI, ephemeral session, official Flagsmith CLI v2.0.0. Simulated settings and a recorded Ubuntu incident.",
+    "command": "python3 scripts/rehearse-rollback-skill.py --scenario drift",
+    "receipt": {
+      "flag": "checkout_flow",
+      "experiment": 1,
+      "default_enabled": false,
+      "rollout_enabled": true,
+      "recorded_rule": "error_rate",
+      "same_decision": true,
+      "verdict": "DRIFT"
+    },
+    "handoff": "The `checkout_flow` rehearsal returned **DRIFT**: the simulated default was off, experiment 1’s rollout override was on, and replay matched the recorded `error_rate` rollback at the same instant for the recorded variant. Check the recovery or change record for the re-enabled override and use a fresh application request to verify customer routing.",
+    "client_usage": {
+      "input_tokens": 145527,
+      "cached_input_tokens": 132864,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 423,
+      "reasoning_output_tokens": 0
+    },
+    "receipt_tokens_o200k_base": 40,
+    "skill_tokens_o200k_base": 417
+  }
+}

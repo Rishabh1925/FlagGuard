@@ -23,6 +23,8 @@ jobs:
           FLAGSMITH_ADMIN_TOKEN: ci-placeholder
           FLAGSMITH_ENV_KEY: ci-placeholder
           PROMETHEUS_URL: http://prometheus:9090
+      - name: Check the Linux rollback deadline and exact triggering poll
+        run: make replay-ubuntu
       - name: Check the recorded checkout incident
         uses: ./
         with:
@@ -39,3 +41,15 @@ jobs:
         with:
           policy: deploy/postgres/guardrails.yaml
           suite: deploy/postgres/cases/suite.json
+      - name: Rehearse the read-only rollback skill
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/rollback-tools"
+          cd "$RUNNER_TEMP/rollback-tools"
+          curl --fail --silent --show-error --location --retry 3 -o cli.tar.gz \
+            https://github.com/Flagsmith/flagsmith-cli/releases/download/v2.0.0/flagsmith_2.0.0_linux_amd64.tar.gz
+          echo "7f7cf6f67682b369dbb33c6f7a11e5edb558397b26852409c46f931236aed179  cli.tar.gz" | sha256sum --check
+          tar -xzf cli.tar.gz flagsmith
+          cd "$GITHUB_WORKSPACE"
+          go build -o "$RUNNER_TEMP/rollback-tools/flagguard" ./cmd/flagguard
+          PATH="$RUNNER_TEMP/rollback-tools:$PATH" python3 scripts/rehearse-rollback-skill.py

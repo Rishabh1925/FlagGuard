@@ -54,6 +54,10 @@ The command checks two things: whether checkout rolled back by poll six and whet
 
 Recovery matters too. Once a flag is off, checkout traffic goes back to control. A direct probe can still test the candidate. In the price trial, FlagGuard refused to reopen the broken version. After the repair, four probes passed, an operator reopened it, and five fresh reads returned the correct price. [Recovery record](docs/evidence/price-recovery.json)
 
+## Audit a rollback with a coding agent
+
+After an incident, ask the [rollback audit skill](skills/audit-flagsmith-rollback/SKILL.md) whether both Flagsmith settings are still off and whether the original policy decision can be reproduced. It uses the Flagsmith CLI for two read-only management queries and the FlagGuard binary for offline replay. In a live checkout test it verified the rollback, then detected that both settings had reopened after operator recovery. [Try the six-case rehearsal](docs/ROLLBACK_SKILL.md) or [inspect the real receipts](docs/evidence/rollback-audit.json).
+
 ## Use it with your service
 
 The controller is a Go binary with an embedded web interface. Point it at your self-hosted Flagsmith and Prometheus instances, name the flag and its experiment in the policy, and supply queries for the measurements you care about. Start in shadow mode to see proposed rollbacks against your own traffic.
