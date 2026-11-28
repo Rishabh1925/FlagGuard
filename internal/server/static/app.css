@@ -10,6 +10,18 @@
 /* Shared instrument styling keeps live status colors reserved for telemetry. */
 :root{--ink:#19352e;--bg:#f6f4ec;--paper:#fffefa;--line:#ced2c6;--green:#205d4e}
 .sidebar{background:#153832}
+.sidebar a[data-view="incidents"] {
+  align-items: center;
+  white-space: nowrap;
+}
+.sidebar a[data-view="incidents"][aria-current="page"] {
+  background: #fff;
+  color: #19352e;
+  font-weight: inherit;
+}
+@media (min-width: 701px) and (max-width: 1200px) {
+  .sidebar a[data-view="incidents"] { column-gap: 6px; }
+}
 .mark{display:inline-flex;width:31px;height:30px;align-items:center;justify-content:center;gap:2px;background:#eee9d6;border-radius:4px}
 .mark i{width:3px;height:15px;background:#19382e;transform:skew(-20deg)}
 .mark i:last-child{height:9px;background:#ac431c}
