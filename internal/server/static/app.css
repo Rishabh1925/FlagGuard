@@ -15,8 +15,6 @@
   white-space: nowrap;
 }
 .sidebar a[data-view="incidents"][aria-current="page"] {
-  background: #fff;
-  color: #19352e;
   font-weight: inherit;
 }
 @media (min-width: 701px) and (max-width: 1200px) {
