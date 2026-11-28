@@ -14,11 +14,8 @@
   align-items: center;
   white-space: nowrap;
 }
-.sidebar a[data-view="incidents"][aria-current="page"] {
-  font-weight: inherit;
-}
-@media (min-width: 701px) and (max-width: 1200px) {
-  .sidebar a[data-view="incidents"] { column-gap: 6px; }
+@media (min-width: 701px) {
+  .sidebar a[data-view="incidents"] { column-gap: 4px; padding-inline: 6px; }
 }
 .mark{display:inline-flex;width:31px;height:30px;align-items:center;justify-content:center;gap:2px;background:#eee9d6;border-radius:4px}
 .mark i{width:3px;height:15px;background:#19382e;transform:skew(-20deg)}
