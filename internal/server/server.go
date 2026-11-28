@@ -44,7 +44,7 @@ func (s *Server) Handler() http.Handler {
 			http.ServeFileFS(w, r, assets, "static"+path)
 		})
 	}
-	for path, contentType := range map[string]string{"/app.js": "text/javascript; charset=utf-8", "/app.css": "text/css; charset=utf-8", "/landing.css": "text/css; charset=utf-8", "/landing.js": "text/javascript; charset=utf-8"} {
+	for path, contentType := range map[string]string{"/favicon.svg": "image/svg+xml", "/app.js": "text/javascript; charset=utf-8", "/app.css": "text/css; charset=utf-8", "/landing.css": "text/css; charset=utf-8", "/landing.js": "text/javascript; charset=utf-8"} {
 		mux.HandleFunc("GET "+path, func(w http.ResponseWriter, r *http.Request) {
 			b, _ := assets.ReadFile("static" + path)
 			w.Header().Set("Content-Type", contentType)
@@ -121,7 +121,7 @@ func (s *Server) Handler() http.Handler {
 			return
 		}
 		_, publicExhibit := exhibit[r.URL.Path]
-		public := publicExhibit || r.URL.Path == "/" || r.URL.Path == "/landing.css" || r.URL.Path == "/landing.js" || r.URL.Path == "/healthz"
+		public := publicExhibit || r.URL.Path == "/" || r.URL.Path == "/favicon.svg" || r.URL.Path == "/landing.css" || r.URL.Path == "/landing.js" || r.URL.Path == "/healthz"
 		if !public && !s.authorized(r) {
 			w.Header().Set("WWW-Authenticate", `Basic realm="FlagGuard", charset="UTF-8"`)
 			write(w, 401, map[string]string{"error": "operator authentication required"})
